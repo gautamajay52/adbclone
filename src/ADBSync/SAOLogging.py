@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-
 """Nice logging, with colors on Linux."""
 
 import logging
-from sys import platform
+import sys
 
 class ColoredFormatter(logging.Formatter):
     """Logging Formatter to add colors"""
@@ -49,7 +47,7 @@ def setupRootLogger(
     ):
     messagefmt_toUse = messagefmt_verbose if verbosityLevel else messagefmt
     loggingLevel = 10 * (2 + quietnessLevel - verbosityLevel)
-    if not noColor and platform == "linux":
+    if not noColor and sys.platform == "linux":
         formatter_class = ColoredFormatter
     else:
         formatter_class = logging.Formatter
@@ -60,10 +58,10 @@ def setupRootLogger(
     consoleHandler.setFormatter(formatter_class(fmt = messagefmt_toUse, datefmt = datefmt))
     rootLogger.addHandler(consoleHandler)
 
-def criticalLogExit(message, logStackInfo: bool = True):
+def criticalLogExit(message, logStackInfo: bool = True, exitCode: int = 1):
     logging.critical(message, stack_info = logStackInfo)
     logging.critical("Exiting")
-    raise SystemExit
+    raise SystemExit(exitCode)
 
 def logTree(title, tree, finals = None, logLeavesTypes = True, loggingLevel = logging.INFO):
     """Log tree nicely if it is a dictionary.

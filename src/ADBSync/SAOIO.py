@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """Methods with error handling for file operations"""
 
 from typing import Union

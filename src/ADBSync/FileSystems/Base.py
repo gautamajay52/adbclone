@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from typing import Iterable, Iterator, List, Tuple, Union
 import logging
 import os
