@@ -7,12 +7,14 @@ __version__ = "1.1.4"
 from typing import List, Tuple, Union
 import logging
 import os
+import stat
 import fnmatch
 
 from .argparsing import getArgs
 from .SAOIO import tryLoading
 from .SAOLogging import criticalLogExit, logTree, setupRootLogger
 
+from .FileSystems.Base import FileSystem
 from .FileSystems.Local import LocalFileSystem
 from .FileSystems.Android import AndroidFileSystem
 
@@ -279,6 +281,48 @@ class FileSyncer():
                     returnDict[key] = value_pruned
             return returnDict or None
 
+    @classmethod
+    def pathsToFixedDestinationPaths(cls,
+        path_source: str,
+        fs_source: FileSystem,
+        path_destination: str,
+        fs_destination: FileSystem
+    ) -> Tuple[str, str]:
+        """Modify sync paths according to how a trailing slash on the source path should be treated"""
+        # TODO I'm not exactly sure if this covers source and destination being symlinks (lstat vs stat etc)
+        # we only need to consider when the destination is a directory
+        try:
+            lstat_destination = fs_destination.lstat(path_destination)
+        except FileNotFoundError:
+            return path_source, path_destination
+        except NotADirectoryError:
+            criticalLogExit("Not a directory error for '{}'".format(path_source))
+        except PermissionError:
+            criticalLogExit("Permission error stat-ing '{}'".format(path_source))
+
+        if stat.S_ISLNK(lstat_destination.st_mode):
+            criticalLogExit("Destination is a symlink. Not sure what to do. See GitHub issue #8")
+
+        if not stat.S_ISDIR(lstat_destination.st_mode):
+            return path_source, path_destination
+
+        # we know the destination is a directory at this point
+        try:
+            lstat_source = fs_source.lstat(path_source)
+        except FileNotFoundError:
+            return path_source, path_destination
+        except NotADirectoryError:
+            criticalLogExit("Not a directory error for '{}'".format(path_source))
+        except PermissionError:
+            criticalLogExit("Permission error stat-ing '{}'".format(path_source))
+
+        if stat.S_ISREG(lstat_source.st_mode) or (stat.S_ISDIR(lstat_source.st_mode) and path_source[-1] not in ["/", "\\"]):
+            path_destination = fs_destination.joinPaths(
+                path_destination,
+                fs_destination.path_split(path_source)[1]
+            )
+        return path_source, path_destination
+
 def main():
     args = getArgs(__doc__, __version__)
 
@@ -288,9 +332,6 @@ def main():
         quietnessLevel = args.logging_verbosity_quiet,
         messagefmt = "[%(levelname)s] %(message)s"
     )
-
-    if args.LOCAL[-1] in ["/", "\\"] or args.ANDROID[-1] in ["/", "\\"]:
-        logging.warning("Trailing slashes are ignored (see README.md)")
 
     for excludeFrom_filename in args.excludeFrom:
         excludeFrom_file = tryLoading(os.path.expanduser(os.path.normpath(excludeFrom_filename)))
@@ -315,6 +356,8 @@ def main():
         fs_source = fs_local
         path_destination = args.ANDROID
         fs_destination = fs_android
+
+    path_source, path_destination = FileSyncer.pathsToFixedDestinationPaths(path_source, fs_source, path_destination, fs_destination)
 
     path_source = fs_source.normPath(path_source)
     path_destination = fs_destination.normPath(path_destination)

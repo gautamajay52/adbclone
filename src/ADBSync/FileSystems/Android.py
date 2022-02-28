@@ -158,6 +158,10 @@ class AndroidFileSystem(FileSystem):
     def joinPaths(self, base: str, leaf: str) -> str:
         return os.path.join(base, leaf).replace("\\", "/") # for Windows
 
+    def path_split(self, path: str) -> Tuple[str, str]:
+        path_os_head, path_os_tail = os.path.split(path)
+        return path_os_head.replace("\\", "/"), path_os_tail # for Windows
+
     def normPath(self, path: str) -> str:
         return os.path.normpath(path).replace("\\", "/")
 

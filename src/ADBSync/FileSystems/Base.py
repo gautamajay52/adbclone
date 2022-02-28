@@ -136,6 +136,9 @@ class FileSystem():
     def joinPaths(self, base: str, leaf: str) -> str:
         raise NotImplementedError
 
+    def path_split(self, path: str) -> Tuple[str, str]:
+        raise NotImplementedError
+
     def normPath(self, path: str) -> str:
         raise NotImplementedError
 

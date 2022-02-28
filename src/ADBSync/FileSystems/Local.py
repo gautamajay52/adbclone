@@ -33,6 +33,9 @@ class LocalFileSystem(FileSystem):
     def joinPaths(self, base: str, leaf: str) -> str:
         return os.path.join(base, leaf)
 
+    def path_split(self, path: str) -> Tuple[str, str]:
+        return os.path.split(path)
+
     def normPath(self, path: str) -> str:
         return os.path.normpath(path)
 
