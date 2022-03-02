@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from typing import Iterable, Iterator, List, Tuple, Union
 import logging
 import os
@@ -136,6 +134,9 @@ class FileSystem():
         raise NotImplementedError
 
     def joinPaths(self, base: str, leaf: str) -> str:
+        raise NotImplementedError
+
+    def path_split(self, path: str) -> Tuple[str, str]:
         raise NotImplementedError
 
     def normPath(self, path: str) -> str:

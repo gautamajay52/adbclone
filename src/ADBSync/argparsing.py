@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from typing import List
 from dataclasses import dataclass
 import argparse

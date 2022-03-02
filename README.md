@@ -9,10 +9,6 @@ The reason for the rewrite is to
 1. Update the repo to Python 3 codestyle (strings are by default UTF-8, no more b"" and u"", classes don't need to inherit from object, 4 space indentation etc)
 2. Add in support for `--exclude`, `--exclude-from`, `--del`, `--delete-excluded` like `rsync` has (this required a complete rewrite of the diffing algorithm)
 
-## Important difference from rsync / original adbsync!!!
-
-This script does not treat a trailing slash on the source side's filepath specially. The source file/folder is mapped directly to the destination file/folder. If one tries to overwrite a file with a folder or a folder with a file adbsync will exit unless `--force` is specified. Be careful and read the dry-run log first!
-
 ## Additions
 
 - `--del` will delete files and folders on the destination end that are not present on the source end. This does not include exluded files.
