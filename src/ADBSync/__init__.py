@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.1.5beta"
+__version__ = "1.1.5"
 
 from typing import List, Tuple, Union
 import logging
@@ -344,6 +344,9 @@ def main():
     fs_android = AndroidFileSystem(adb_arguments)
     fs_local = LocalFileSystem(adb_arguments)
 
+    if not fs_android.testConnection():
+        criticalLogExit("No device detected")
+
     args.LOCAL = os.path.expanduser(args.LOCAL)
     if args.pull:
         path_source = args.ANDROID
@@ -360,9 +363,6 @@ def main():
 
     path_source = fs_source.normPath(path_source)
     path_destination = fs_destination.normPath(path_destination)
-
-    if not fs_android.testConnection():
-        criticalLogExit("No device detected")
 
     try:
         filesTree_source = fs_source.getFilesTree(path_source, followLinks = args.copyLinks)
