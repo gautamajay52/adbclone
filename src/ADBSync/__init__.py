@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.1.4"
+__version__ = "1.1.5beta"
 
 from typing import List, Tuple, Union
 import logging
@@ -11,7 +11,6 @@ import stat
 import fnmatch
 
 from .argparsing import getArgs
-from .SAOIO import tryLoading
 from .SAOLogging import criticalLogExit, logTree, setupRootLogger
 
 from .FileSystems.Base import FileSystem
@@ -333,9 +332,9 @@ def main():
         messagefmt = "[%(levelname)s] %(message)s"
     )
 
-    for excludeFrom_filename in args.excludeFrom:
-        excludeFrom_file = tryLoading(os.path.expanduser(os.path.normpath(excludeFrom_filename)))
-        args.exclude.extend([line for line in excludeFrom_file.splitlines() if line])
+    for excludeFrom_pathname in args.excludeFrom:
+        with excludeFrom_pathname.open("r") as f:
+            args.exclude.extend(line for line in f.read().splitlines() if line)
 
     adb_arguments = [args.adb_bin] + ["-{}".format(arg) for arg in args.adb_flags]
     for option, value in args.adb_options:

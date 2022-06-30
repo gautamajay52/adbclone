@@ -1,6 +1,7 @@
 from typing import List
 from dataclasses import dataclass
 import argparse
+import pathlib
 
 @dataclass
 class Args():
@@ -14,7 +15,7 @@ class Args():
     dryRun: bool
     copyLinks: bool
     exclude: List[str]
-    excludeFrom: List[str]
+    excludeFrom: List[pathlib.Path]
     delete: bool
     deleteExcluded: bool
     pull: bool
@@ -69,6 +70,7 @@ def getArgs(docstring: str, version: str) -> Args:
     parser.add_argument("--exclude-from",
         help = "Filename of file containing fnmatch patterns to ignore relative to source (reusable)",
         metavar = "EXCLUDE_FROM",
+        type = pathlib.Path,
         action = "append",
         dest = "excludeFrom",
         default = [])
