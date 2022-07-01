@@ -22,17 +22,14 @@ class FileSystem():
         # which is much faster than individually stat-ing each file. Hence we have getFilesTree's special first lstat
         if stat.S_ISLNK(tree_root_stat.st_mode):
             if not followLinks:
-                logging.warning("Ignoring symlink '{}'".format(tree_root))
+                logging.warning(f"Ignoring symlink {tree_root}")
                 return None
-            logging.debug("Following symlink '{}'".format(tree_root))
+            logging.debug(f"Following symlink {tree_root}")
             try:
                 tree_root_realPath = self.realPath(tree_root)
                 tree_root_stat_realPath = self.lstat(tree_root_realPath)
-            except FileNotFoundError:
-                logging.error("Skipping dead symlink '{}'".format(tree_root))
-                return None
-            except NotADirectoryError:
-                logging.error("Skipping not-a-directory symlink '{}'".format(tree_root))
+            except (FileNotFoundError, NotADirectoryError, PermissionError) as e:
+                logging.error(f"Skipping symlink {tree_root}: {e.strerror}")
                 return None
             return self._getFilesTree(tree_root_realPath, tree_root_stat_realPath, followLinks = followLinks)
         elif stat.S_ISDIR(tree_root_stat.st_mode):
@@ -56,7 +53,7 @@ class FileSystem():
 
     def removeTree(self, tree_root: str, tree: Union[Tuple[int, int], dict], dryRun: bool = True) -> None:
         if isinstance(tree, tuple):
-            logging.info("Removing '{}'".format(tree_root))
+            logging.info(f"Removing {tree_root}")
             if not dryRun:
                 self.unlink(tree_root)
         elif isinstance(tree, dict):
@@ -64,7 +61,7 @@ class FileSystem():
             for key, value in tree.items():
                 self.removeTree(self.normPath(self.joinPaths(tree_root, key)), value, dryRun = dryRun)
             if removeFolder:
-                logging.info("Removing folder '{}'".format(tree_root))
+                logging.info(f"Removing folder {tree_root}")
                 if not dryRun:
                     self.rmdir(tree_root)
         else:
@@ -83,16 +80,16 @@ class FileSystem():
         ) -> None:
         if isinstance(tree, tuple):
             if dryRun:
-                logging.info("Copying '{}' to '{}'".format(tree_root, destination_root))
+                logging.info(f"Copying {tree_root} to {destination_root}")
             else:
                 if not showProgress:
                     # log this instead of letting adb display output
-                    logging.info("Copying '{}' to '{}'".format(tree_root, destination_root))
+                    logging.info(f"Copying {tree_root} to {destination_root}")
                 self.pushFileHere(tree_root, destination_root, showProgress = showProgress)
                 self.utime(destination_root, tree)
         elif isinstance(tree, dict):
             if tree.pop(".", False):
-                logging.info("Making directory '{}'".format(destination_root))
+                logging.info(f"Making directory {destination_root}")
                 if not dryRun:
                     self.makedirs(destination_root)
             for key, value in tree.items():

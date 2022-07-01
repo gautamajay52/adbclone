@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.1.5"
+__version__ = "1.1.6beta"
 
 from typing import List, Tuple, Union
 import logging
@@ -138,10 +138,10 @@ class FileSyncer():
                     unaccounted_destination = {".": None}
                     excluded_destination = {".": None}
                     if folderFileOverwriteError:
-                        logging.critical("Refusing to overwrite directory '{}' with file '{}'".format(path_destination, path_source))
+                        logging.critical(f"Refusing to overwrite directory {path_destination} with file {path_source}")
                         criticalLogExit("Use --force if you are sure!")
                     else:
-                        logging.warning("Overwriting directory '{}' with file '{}'".format(path_destination, path_source))
+                        logging.warning(f"Overwriting directory {path_destination} with file {path_source}")
             else:
                 raise NotImplementedError
 
@@ -197,10 +197,10 @@ class FileSyncer():
                             folderFileOverwriteError = folderFileOverwriteError
                         )
                     if folderFileOverwriteError:
-                        logging.critical("Refusing to overwrite file '{}' with directory '{}'".format(path_destination, path_source))
+                        logging.critical(f"Refusing to overwrite file {path_destination} with directory {path_source}")
                         criticalLogExit("Use --force if you are sure!")
                     else:
-                        logging.warning("Overwriting file '{}' with directory '{}'".format(path_destination, path_source))
+                        logging.warning(f"Overwriting file {path_destination} with directory {path_source}")
                 excluded_destination = None
             elif isinstance(destination, dict):
                 if exclude:
@@ -294,10 +294,8 @@ class FileSyncer():
             lstat_destination = fs_destination.lstat(path_destination)
         except FileNotFoundError:
             return path_source, path_destination
-        except NotADirectoryError:
-            criticalLogExit("Not a directory error for '{}'".format(path_source))
-        except PermissionError:
-            criticalLogExit("Permission error stat-ing '{}'".format(path_source))
+        except (NotADirectoryError, PermissionError) as e:
+            criticalLogExit(f"{path_source}: {e.strerror}")
 
         if stat.S_ISLNK(lstat_destination.st_mode):
             criticalLogExit("Destination is a symlink. Not sure what to do. See GitHub issue #8")
@@ -310,10 +308,8 @@ class FileSyncer():
             lstat_source = fs_source.lstat(path_source)
         except FileNotFoundError:
             return path_source, path_destination
-        except NotADirectoryError:
-            criticalLogExit("Not a directory error for '{}'".format(path_source))
-        except PermissionError:
-            criticalLogExit("Permission error stat-ing '{}'".format(path_source))
+        except (NotADirectoryError, PermissionError) as e:
+            criticalLogExit(f"{path_source}: {e.strerror}")
 
         if stat.S_ISREG(lstat_source.st_mode) or (stat.S_ISDIR(lstat_source.st_mode) and path_source[-1] not in ["/", "\\"]):
             path_destination = fs_destination.joinPaths(
@@ -336,9 +332,9 @@ def main():
         with excludeFrom_pathname.open("r") as f:
             args.exclude.extend(line for line in f.read().splitlines() if line)
 
-    adb_arguments = [args.adb_bin] + ["-{}".format(arg) for arg in args.adb_flags]
+    adb_arguments = [args.adb_bin] + [f"-{arg}" for arg in args.adb_flags]
     for option, value in args.adb_options:
-        adb_arguments.append("-{}".format(option))
+        adb_arguments.append(f"-{option}")
         adb_arguments.append(value)
 
     fs_android = AndroidFileSystem(adb_arguments)
@@ -366,21 +362,15 @@ def main():
 
     try:
         filesTree_source = fs_source.getFilesTree(path_source, followLinks = args.copyLinks)
-    except FileNotFoundError:
-        criticalLogExit("Source '{}' not found".format(path_source))
-    except NotADirectoryError:
-        criticalLogExit("Not a directory error for '{}'".format(path_source))
-    except PermissionError:
-        criticalLogExit("Permission error stat-ing '{}'".format(path_source))
+    except (FileNotFoundError, NotADirectoryError, PermissionError) as e:
+        criticalLogExit(f"{path_source}: {e.strerror}")
 
     try:
         filesTree_destination = fs_destination.getFilesTree(path_destination, followLinks = args.copyLinks)
     except FileNotFoundError:
         filesTree_destination = None
-    except NotADirectoryError:
-        criticalLogExit("Not a directory error for '{}'".format(path_destination))
-    except PermissionError:
-        criticalLogExit("Permission error stat-ing '{}'".format(path_destination))
+    except (NotADirectoryError, PermissionError) as e:
+        criticalLogExit(f"{path_destination}: {e.strerror}")
 
     logging.info("Source tree:")
     if filesTree_source is not None:
@@ -428,7 +418,7 @@ def main():
 
     logging.info("Copy tree:")
     if tree_copy is not None:
-        logTree("{} --> {}".format(path_source, path_destination), tree_copy, logLeavesTypes = False)
+        logTree(f"{path_source} --> {path_destination}", tree_copy, logLeavesTypes = False)
     logging.info("")
 
     logging.info("Source exluded tree:")

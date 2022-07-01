@@ -1,4 +1,5 @@
-from typing import Iterable, Tuple
+from typing import Iterable, NoReturn, Tuple
+import logging
 import os
 import re
 import stat
@@ -66,6 +67,10 @@ class AndroidFileSystem(FileSystem):
         ["&", "\\&"]
     ]
 
+    def line_not_captured(self, line: str) -> NoReturn:
+        logging.critical("ADB line not captured")
+        criticalLogExit(line)
+
     def escapePath(self, path: str) -> str:
         for replacement in self.escapePath_replacements:
             path = path.replace(*replacement)
@@ -114,19 +119,19 @@ class AndroidFileSystem(FileSystem):
 
             return match_groupdict["filename"], os.stat_result((st_mode, st_ino, st_rdev, st_nlink, st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime))
         else:
-            criticalLogExit("Line not captured: '{}'".format(line))
+            self.line_not_captured(line)
 
     def unlink(self, path: str) -> None:
         for line in self.adbShell(["rm", self.escapePath(path)]):
-            criticalLogExit("Line not captured: '{}'".format(line))
+            self.line_not_captured(line)
 
     def rmdir(self, path: str) -> None:
         for line in self.adbShell(["rm", "-r", self.escapePath(path)]):
-            criticalLogExit("Line not captured: '{}'".format(line))
+            self.line_not_captured(line)
 
     def makedirs(self, path: str) -> None:
         for line in self.adbShell(["mkdir", "-p", self.escapePath(path)]):
-            criticalLogExit("Line not captured: '{}'".format(line))
+            self.line_not_captured(line)
 
     def realPath(self, path: str) -> str:
         for line in self.adbShell(["realpath", self.escapePath(path)]):
@@ -153,7 +158,7 @@ class AndroidFileSystem(FileSystem):
         atime = datetime.datetime.utcfromtimestamp(times[0]).strftime("%Y%m%d%H%M")
         mtime = datetime.datetime.utcfromtimestamp(times[1]).strftime("%Y%m%d%H%M")
         for line in self.adbShell(["touch", "-at", atime, "-mt", mtime, self.escapePath(path)]):
-            criticalLogExit("Line not captured: '{}'".format(line))
+            self.line_not_captured(line)
 
     def joinPaths(self, base: str, leaf: str) -> str:
         return os.path.join(base, leaf).replace("\\", "/") # for Windows
