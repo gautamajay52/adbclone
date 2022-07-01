@@ -8,6 +8,10 @@ from ..SAOLogging import criticalLogExit
 from .Base import FileSystem
 
 class LocalFileSystem(FileSystem):
+    @property
+    def sep(self) -> str:
+        return os.path.sep
+
     def unlink(self, path: str) -> None:
         os.unlink(path)
 

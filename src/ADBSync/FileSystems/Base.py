@@ -70,6 +70,8 @@ class FileSystem():
 
     def pushTreeHere(self,
         tree_path: str,
+        relative_tree_path: str, # for logging paths of files / folders copied relative to the source root / destination root
+                                 # nicely instead of repeating the root every time; rsync does this nice logging
         tree: Union[Tuple[int, int], dict],
         destination_root: str,
         fs_source: FileSystem,
@@ -78,17 +80,17 @@ class FileSystem():
         ) -> None:
         if isinstance(tree, tuple):
             if dryRun:
-                logging.info(f"Copying {tree_path} to {destination_root}")
+                logging.info(f"{relative_tree_path}")
             else:
                 if not showProgress:
                     # log this instead of letting adb display output
-                    logging.info(f"Copying {tree_path} to {destination_root}")
+                    logging.info(f"{relative_tree_path}")
                 self.pushFileHere(tree_path, destination_root, showProgress = showProgress)
                 self.utime(destination_root, tree)
         elif isinstance(tree, dict):
             try:
                 tree.pop(".") # directory needs making
-                logging.info(f"Making directory {destination_root}")
+                logging.info(f"{relative_tree_path}{self.sep}")
                 if not dryRun:
                     self.makedirs(destination_root)
             except KeyError:
@@ -96,6 +98,7 @@ class FileSystem():
             for key, value in tree.items():
                 self.pushTreeHere(
                     fs_source.normPath(fs_source.joinPaths(tree_path, key)),
+                    fs_source.joinPaths(relative_tree_path, key),
                     value,
                     self.normPath(self.joinPaths(destination_root, key)),
                     fs_source,
@@ -106,6 +109,10 @@ class FileSystem():
             raise NotImplementedError
 
     # Abstract methods below implemented in Local.py and Android.py
+
+    @property
+    def sep(self) -> str:
+        raise NotImplementedError
 
     def unlink(self, path: str) -> None:
         raise NotImplementedError

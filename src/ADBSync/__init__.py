@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.1.6beta"
+__version__ = "1.1.6"
 
 from typing import List, Tuple, Union
 import logging
@@ -325,7 +325,7 @@ def main():
         noColor = args.logging_noColor,
         verbosityLevel = args.logging_verbosity_verbose,
         quietnessLevel = args.logging_verbosity_quiet,
-        messagefmt = "[%(levelname)s] %(message)s"
+        messagefmt = "[%(levelname)s] %(message)s" if os.name == "nt" else "%(message)s"
     )
 
     for excludeFrom_pathname in args.excludeFrom:
@@ -493,6 +493,7 @@ def main():
         logging.info("Copying copy tree")
         fs_destination.pushTreeHere(
             path_source,
+            ".",
             tree_copy,
             path_destination,
             fs_source,

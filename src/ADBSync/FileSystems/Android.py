@@ -121,6 +121,10 @@ class AndroidFileSystem(FileSystem):
         else:
             self.line_not_captured(line)
 
+    @property
+    def sep(self) -> str:
+        return "/"
+
     def unlink(self, path: str) -> None:
         for line in self.adbShell(["rm", self.escapePath(path)]):
             self.line_not_captured(line)
