@@ -86,10 +86,13 @@ class FileSystem():
                 self.pushFileHere(tree_root, destination_root, showProgress = showProgress)
                 self.utime(destination_root, tree)
         elif isinstance(tree, dict):
-            if tree.pop(".", False):
+            try:
+                tree.pop(".") # directory needs making
                 logging.info(f"Making directory {destination_root}")
                 if not dryRun:
                     self.makedirs(destination_root)
+            except KeyError:
+                pass
             for key, value in tree.items():
                 self.pushTreeHere(
                     fs_source.normPath(fs_source.joinPaths(tree_root, key)),
