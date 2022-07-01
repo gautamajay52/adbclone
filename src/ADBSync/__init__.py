@@ -495,10 +495,7 @@ def main():
             path_source,
             tree_copy,
             path_destination,
-            fs_source.joinPaths,
-            fs_source.normPath,
-            fs_destination.joinPaths,
-            fs_destination.normPath,
+            fs_source,
             dryRun = args.dryRun,
             showProgress = args.showProgress
         )

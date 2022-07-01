@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Iterable, Iterator, List, Tuple, Union
 import logging
 import os
@@ -71,10 +72,7 @@ class FileSystem():
         tree_root: str,
         tree: Union[Tuple[int, int], dict],
         destination_root: str,
-        pathJoinFunction_source,
-        pathNormFunction_source,
-        pathJoinFunction_destination,
-        pathNormFunction_destination,
+        fs_source: FileSystem,
         dryRun: bool = True,
         showProgress: bool = False
         ) -> None:
@@ -94,13 +92,10 @@ class FileSystem():
                     self.makedirs(destination_root)
             for key, value in tree.items():
                 self.pushTreeHere(
-                    pathNormFunction_source(pathJoinFunction_source(tree_root, key)),
+                    fs_source.normPath(fs_source.joinPaths(tree_root, key)),
                     value,
-                    pathNormFunction_destination(pathJoinFunction_destination(destination_root, key)),
-                    pathJoinFunction_source,
-                    pathNormFunction_source,
-                    pathJoinFunction_destination,
-                    pathNormFunction_destination,
+                    self.normPath(self.joinPaths(destination_root, key)),
+                    fs_source,
                     dryRun = dryRun,
                     showProgress = showProgress
                 )
