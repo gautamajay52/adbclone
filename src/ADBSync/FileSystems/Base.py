@@ -1,23 +1,10 @@
 from __future__ import annotations
-from typing import Iterable, Iterator, List, Tuple, Union
+from typing import Iterable, Tuple, Union
 import logging
 import os
 import stat
-import subprocess
 
 class FileSystem():
-    def __init__(self, adb_arguments: List[str]) -> None:
-        self.adb_arguments = adb_arguments
-
-    def adbShell(self, commands: List[str]) -> Iterator[str]:
-        with subprocess.Popen(
-            self.adb_arguments + ["shell"] + commands,
-            stdout = subprocess.PIPE, stderr = subprocess.STDOUT
-        ) as proc:
-            while adbLine := proc.stdout.readline():
-                adbLine = adbLine.decode().rstrip("\r\n")
-                yield adbLine
-
     def _getFilesTree(self, tree_path: str, tree_path_stat: os.stat_result, followLinks: bool = False):
         # the reason to have two functions instead of one purely recursive one is to use self.lstat_inDir ie ls
         # which is much faster than individually stat-ing each file. Hence we have getFilesTree's special first lstat

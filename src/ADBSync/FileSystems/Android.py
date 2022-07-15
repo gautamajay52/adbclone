@@ -1,4 +1,4 @@
-from typing import Iterable, NoReturn, Tuple
+from typing import Iterable, Iterator, List, NoReturn, Tuple
 import logging
 import os
 import re
@@ -66,6 +66,37 @@ class AndroidFileSystem(FileSystem):
         ["!", "\\!"],
         ["&", "\\&"]
     ]
+
+    ADBSYNC_END_OF_COMMAND = "ADBSYNC END OF COMMAND"
+
+    def __init__(self, adb_arguments: List[str]) -> None:
+        self.adb_arguments = adb_arguments
+        self.proc_adb_shell = subprocess.Popen(
+            self.adb_arguments + ["shell"],
+            stdin = subprocess.PIPE,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.STDOUT
+        )
+
+    def __del__(self):
+        self.proc_adb_shell.stdin.close()
+        self.proc_adb_shell.wait()
+
+    def adbShell(self, commands: List[str]) -> Iterator[str]:
+        self.proc_adb_shell.stdin.write(" ".join(commands).encode())
+        self.proc_adb_shell.stdin.write("\n".encode())
+        self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode())
+        self.proc_adb_shell.stdin.flush()
+
+        lines_to_yield: List[str] = []
+        while adbLine := self.proc_adb_shell.stdout.readline():
+            adbLine = adbLine.decode().rstrip("\r\n")
+            if adbLine == self.ADBSYNC_END_OF_COMMAND:
+                break
+            else:
+                lines_to_yield.append(adbLine)
+        for line in lines_to_yield:
+            yield line
 
     def line_not_captured(self, line: str) -> NoReturn:
         logging.critical("ADB line not captured")

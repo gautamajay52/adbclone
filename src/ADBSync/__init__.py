@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.1.6"
+__version__ = "1.2.0"
 
 from typing import List, Tuple, Union
 import logging
@@ -338,7 +338,7 @@ def main():
         adb_arguments.append(value)
 
     fs_android = AndroidFileSystem(adb_arguments)
-    fs_local = LocalFileSystem(adb_arguments)
+    fs_local = LocalFileSystem()
 
     if not fs_android.testConnection():
         criticalLogExit("No device detected")
