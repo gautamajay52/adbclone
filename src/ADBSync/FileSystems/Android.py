@@ -6,7 +6,7 @@ import stat
 import datetime
 import subprocess
 
-from ..SAOLogging import criticalLogExit
+from ..SAOLogging import logging_fatal
 
 from .Base import FileSystem
 
@@ -58,7 +58,7 @@ class AndroidFileSystem(FileSystem):
     RE_REALPATH_NO_SUCH_FILE = re.compile("^realpath: .*: No such file or directory$")
     RE_REALPATH_NOT_A_DIRECTORY = re.compile("^realpath: .*: Not a directory$")
 
-    escapePath_replacements = [
+    ESCAPE_PATH_REPLACEMENTS = [
         [" ", "\\ "],
         ["'", "\\'"],
         ["(", "\\("],
@@ -82,40 +82,40 @@ class AndroidFileSystem(FileSystem):
         self.proc_adb_shell.stdin.close()
         self.proc_adb_shell.wait()
 
-    def adbShell(self, commands: List[str]) -> Iterator[str]:
+    def adb_shell(self, commands: List[str]) -> Iterator[str]:
         self.proc_adb_shell.stdin.write(" ".join(commands).encode())
         self.proc_adb_shell.stdin.write("\n".encode())
         self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode())
         self.proc_adb_shell.stdin.flush()
 
         lines_to_yield: List[str] = []
-        while adbLine := self.proc_adb_shell.stdout.readline():
-            adbLine = adbLine.decode().rstrip("\r\n")
-            if adbLine == self.ADBSYNC_END_OF_COMMAND:
+        while adb_line := self.proc_adb_shell.stdout.readline():
+            adb_line = adb_line.decode().rstrip("\r\n")
+            if adb_line == self.ADBSYNC_END_OF_COMMAND:
                 break
             else:
-                lines_to_yield.append(adbLine)
+                lines_to_yield.append(adb_line)
         for line in lines_to_yield:
             yield line
 
     def line_not_captured(self, line: str) -> NoReturn:
         logging.critical("ADB line not captured")
-        criticalLogExit(line)
+        logging_fatal(line)
 
-    def escapePath(self, path: str) -> str:
-        for replacement in self.escapePath_replacements:
+    def escape_path(self, path: str) -> str:
+        for replacement in self.ESCAPE_PATH_REPLACEMENTS:
             path = path.replace(*replacement)
         return path
 
-    def testConnection(self):
-        for line in self.adbShell([":"]):
+    def test_connection(self):
+        for line in self.adb_shell([":"]):
             if self.RE_TESTCONNECTION_DAEMON_NOT_RUNNING.fullmatch(line) or self.RE_TESTCONNECTION_DAEMON_STARTED.fullmatch(line):
                 continue
             elif self.RE_TESTCONNECTION_NO_DEVICE.fullmatch(line):
                 return False
         return True
 
-    def lsToStat(self, line: str) -> Tuple[str, os.stat_result]:
+    def ls_to_stat(self, line: str) -> Tuple[str, os.stat_result]:
         if self.RE_NO_SUCH_FILE.fullmatch(line):
             raise FileNotFoundError
         elif self.RE_LS_NOT_A_DIRECTORY.fullmatch(line):
@@ -157,19 +157,19 @@ class AndroidFileSystem(FileSystem):
         return "/"
 
     def unlink(self, path: str) -> None:
-        for line in self.adbShell(["rm", self.escapePath(path)]):
+        for line in self.adb_shell(["rm", self.escape_path(path)]):
             self.line_not_captured(line)
 
     def rmdir(self, path: str) -> None:
-        for line in self.adbShell(["rm", "-r", self.escapePath(path)]):
+        for line in self.adb_shell(["rm", "-r", self.escape_path(path)]):
             self.line_not_captured(line)
 
     def makedirs(self, path: str) -> None:
-        for line in self.adbShell(["mkdir", "-p", self.escapePath(path)]):
+        for line in self.adb_shell(["mkdir", "-p", self.escape_path(path)]):
             self.line_not_captured(line)
 
-    def realPath(self, path: str) -> str:
-        for line in self.adbShell(["realpath", self.escapePath(path)]):
+    def realpath(self, path: str) -> str:
+        for line in self.adb_shell(["realpath", self.escape_path(path)]):
             if self.RE_REALPATH_NO_SUCH_FILE.fullmatch(line):
                 raise FileNotFoundError
             elif self.RE_REALPATH_NOT_A_DIRECTORY.fullmatch(line):
@@ -179,34 +179,34 @@ class AndroidFileSystem(FileSystem):
             # permission error possible?
 
     def lstat(self, path: str) -> os.stat_result:
-        for line in self.adbShell(["ls", "-lad", self.escapePath(path)]):
-            return self.lsToStat(line)[1]
+        for line in self.adb_shell(["ls", "-lad", self.escape_path(path)]):
+            return self.ls_to_stat(line)[1]
 
-    def lstat_inDir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
-        for line in self.adbShell(["ls", "-la", self.escapePath(path)]):
+    def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
+        for line in self.adb_shell(["ls", "-la", self.escape_path(path)]):
             if self.RE_TOTAL.fullmatch(line):
                 continue
             else:
-                yield self.lsToStat(line)
+                yield self.ls_to_stat(line)
 
     def utime(self, path: str, times: Tuple[int, int]) -> None:
         atime = datetime.datetime.utcfromtimestamp(times[0]).strftime("%Y%m%d%H%M")
         mtime = datetime.datetime.utcfromtimestamp(times[1]).strftime("%Y%m%d%H%M")
-        for line in self.adbShell(["touch", "-at", atime, "-mt", mtime, self.escapePath(path)]):
+        for line in self.adb_shell(["touch", "-at", atime, "-mt", mtime, self.escape_path(path)]):
             self.line_not_captured(line)
 
-    def joinPaths(self, base: str, leaf: str) -> str:
+    def join(self, base: str, leaf: str) -> str:
         return os.path.join(base, leaf).replace("\\", "/") # for Windows
 
-    def path_split(self, path: str) -> Tuple[str, str]:
-        path_os_head, path_os_tail = os.path.split(path)
-        return path_os_head.replace("\\", "/"), path_os_tail # for Windows
+    def split(self, path: str) -> Tuple[str, str]:
+        head, tail = os.path.split(path)
+        return head.replace("\\", "/"), tail # for Windows
 
-    def normPath(self, path: str) -> str:
+    def normpath(self, path: str) -> str:
         return os.path.normpath(path).replace("\\", "/")
 
-    def pushFileHere(self, source: str, destination: str, showProgress: bool = False) -> None:
-        if showProgress:
+    def push_file_here(self, source: str, destination: str, show_progress: bool = False) -> None:
+        if show_progress:
             kwargs_call = {}
         else:
             kwargs_call = {
@@ -214,4 +214,4 @@ class AndroidFileSystem(FileSystem):
                 "stderr": subprocess.DEVNULL
             }
         if subprocess.call(self.adb_arguments + ["push", source, destination], **kwargs_call):
-            criticalLogExit("Non-zero exit code from adb push")
+            logging_fatal("Non-zero exit code from adb push")

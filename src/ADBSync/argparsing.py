@@ -5,28 +5,28 @@ import pathlib
 
 @dataclass
 class Args():
-    logging_noColor: bool
+    logging_no_color: bool
     logging_verbosity_verbose: int
     logging_verbosity_quiet: int
 
     LOCAL: str
     ANDROID: str
 
-    dryRun: bool
-    copyLinks: bool
+    dry_run: bool
+    copy_links: bool
     exclude: List[str]
-    excludeFrom: List[pathlib.Path]
+    exclude_from: List[pathlib.Path]
     delete: bool
-    deleteExcluded: bool
+    delete_excluded: bool
     pull: bool
     force: bool
-    showProgress: bool
+    show_progress: bool
 
     adb_bin: str
     adb_flags: List[str]
     adb_options: List[List[str]]
 
-def getArgs(docstring: str, version: str) -> Args:
+def get_args(docstring: str, version: str) -> Args:
     parser = argparse.ArgumentParser(description = docstring)
     parser.add_argument("--version",
         action = "version",
@@ -36,7 +36,7 @@ def getArgs(docstring: str, version: str) -> Args:
     parser_logging.add_argument("--no-color",
         help = "Disable colored logging (Linux only)",
         action = "store_true",
-        dest = "logging_noColor")
+        dest = "logging_no_color")
     parser_logging_verbosity = parser_logging.add_mutually_exclusive_group(required = False)
     parser_logging_verbosity.add_argument("-v", "--verbose",
         help = "Increase logging verbosity: -v for debug",
@@ -57,11 +57,11 @@ def getArgs(docstring: str, version: str) -> Args:
     parser.add_argument("-n", "--dry-run",
         help = "Perform a dry run; do not actually copy and delete etc",
         action = "store_true",
-        dest = "dryRun")
+        dest = "dry_run")
     parser.add_argument("-L", "--copy-links",
         help = "Follow symlinks and copy their referent file / directory",
         action = "store_true",
-        dest = "copyLinks")
+        dest = "copy_links")
     parser.add_argument("--exclude",
         help = "fnmatch pattern to ignore relative to source (reusable)",
         action = "append",
@@ -72,7 +72,7 @@ def getArgs(docstring: str, version: str) -> Args:
         metavar = "EXCLUDE_FROM",
         type = pathlib.Path,
         action = "append",
-        dest = "excludeFrom",
+        dest = "exclude_from",
         default = [])
     parser.add_argument("--del",
         help = "Delete files at the destination that are not in the source",
@@ -81,7 +81,7 @@ def getArgs(docstring: str, version: str) -> Args:
     parser.add_argument("--delete-excluded",
         help = "Delete files at the destination that are excluded",
         action = "store_true",
-        dest = "deleteExcluded")
+        dest = "delete_excluded")
     parser.add_argument("--pull",
         help = "Pull ANDROID from Android to LOCAL on the computer instead of the default pushing from computer to Android",
         action = "store_true",
@@ -93,7 +93,7 @@ def getArgs(docstring: str, version: str) -> Args:
     parser.add_argument("--show-progress",
         help = "Show progress from 'adb push' and 'adb pull' commands",
         action = "store_true",
-        dest = "showProgress")
+        dest = "show_progress")
 
     parser_adb = parser.add_argument_group(title = "ADB arguments",
         description = "By default ADB works for me without touching any of these, but if you have any specific "
@@ -119,22 +119,22 @@ def getArgs(docstring: str, version: str) -> Args:
     args = parser.parse_args()
 
     args = Args(
-        args.logging_noColor,
+        args.logging_no_color,
         args.logging_verbosity_verbose,
         args.logging_verbosity_quiet,
 
         args.LOCAL,
         args.ANDROID,
 
-        args.dryRun,
-        args.copyLinks,
+        args.dry_run,
+        args.copy_links,
         args.exclude,
-        args.excludeFrom,
+        args.exclude_from,
         args.delete,
-        args.deleteExcluded,
+        args.delete_excluded,
         args.pull,
         args.force,
-        args.showProgress,
+        args.show_progress,
 
         args.adb_bin,
         args.adb_flags,

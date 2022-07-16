@@ -1,9 +1,8 @@
 from typing import Iterable, Tuple
 import os
-import re
 import subprocess
 
-from ..SAOLogging import criticalLogExit
+from ..SAOLogging import logging_fatal
 
 from .Base import FileSystem
 
@@ -21,30 +20,30 @@ class LocalFileSystem(FileSystem):
     def makedirs(self, path: str) -> None:
         os.makedirs(path, exist_ok = True)
 
-    def realPath(self, path: str) -> str:
+    def realpath(self, path: str) -> str:
         return os.path.realpath(path)
 
     def lstat(self, path: str) -> os.stat_result:
         return os.lstat(path)
 
-    def lstat_inDir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
+    def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
         for filename in os.listdir(path):
-            yield filename, self.lstat(self.joinPaths(path, filename))
+            yield filename, self.lstat(self.join(path, filename))
 
     def utime(self, path: str, times: Tuple[int, int]) -> None:
         os.utime(path, times)
 
-    def joinPaths(self, base: str, leaf: str) -> str:
+    def join(self, base: str, leaf: str) -> str:
         return os.path.join(base, leaf)
 
-    def path_split(self, path: str) -> Tuple[str, str]:
+    def split(self, path: str) -> Tuple[str, str]:
         return os.path.split(path)
 
-    def normPath(self, path: str) -> str:
+    def normpath(self, path: str) -> str:
         return os.path.normpath(path)
 
-    def pushFileHere(self, source: str, destination: str, showProgress: bool = False) -> None:
-        if showProgress:
+    def push_file_here(self, source: str, destination: str, show_progress: bool = False) -> None:
+        if show_progress:
             kwargs_call = {}
         else:
             kwargs_call = {
@@ -52,4 +51,4 @@ class LocalFileSystem(FileSystem):
                 "stderr": subprocess.DEVNULL
             }
         if subprocess.call(self.adb_arguments + ["pull", source, destination], **kwargs_call):
-            criticalLogExit("Non-zero exit code from adb pull")
+            logging_fatal("Non-zero exit code from adb pull")
