@@ -70,7 +70,7 @@ class AndroidFileSystem(FileSystem):
     ADBSYNC_END_OF_COMMAND = "ADBSYNC END OF COMMAND"
 
     def __init__(self, adb_arguments: List[str]) -> None:
-        self.adb_arguments = adb_arguments
+        super().__init__(adb_arguments)
         self.proc_adb_shell = subprocess.Popen(
             self.adb_arguments + ["shell"],
             stdin = subprocess.PIPE,

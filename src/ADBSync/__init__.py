@@ -338,7 +338,7 @@ def main():
         adb_arguments.append(value)
 
     fs_android = AndroidFileSystem(adb_arguments)
-    fs_local = LocalFileSystem()
+    fs_local = LocalFileSystem(adb_arguments)
 
     if not fs_android.test_connection():
         logging_fatal("No device detected")

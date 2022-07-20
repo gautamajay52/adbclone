@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterable, Tuple, Union
+from typing import Iterable, List, Tuple, Union
 import logging
 import os
 import stat
@@ -7,6 +7,9 @@ import stat
 from ..SAOLogging import perror
 
 class FileSystem():
+    def __init__(self, adb_arguments: List[str]) -> None:
+        self.adb_arguments = adb_arguments
+
     def _get_files_tree(self, tree_path: str, tree_path_stat: os.stat_result, follow_links: bool = False):
         # the reason to have two functions instead of one purely recursive one is to use self.lstat_in_dir ie ls
         # which is much faster than individually stat-ing each file. Hence we have get_files_tree's special first lstat
