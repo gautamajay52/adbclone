@@ -340,8 +340,10 @@ def main():
     fs_android = AndroidFileSystem(adb_arguments)
     fs_local = LocalFileSystem(adb_arguments)
 
-    if not fs_android.test_connection():
-        logging_fatal("No device detected")
+    try:
+        fs_android.test_connection()
+    except BrokenPipeError:
+        logging_fatal("Connection test failed")
 
     if args.direction == "push":
         path_source = args.direction_push_local

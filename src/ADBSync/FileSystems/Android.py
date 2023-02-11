@@ -109,11 +109,12 @@ class AndroidFileSystem(FileSystem):
 
     def test_connection(self):
         for line in self.adb_shell([":"]):
+            print(line)
+
             if self.RE_TESTCONNECTION_DAEMON_NOT_RUNNING.fullmatch(line) or self.RE_TESTCONNECTION_DAEMON_STARTED.fullmatch(line):
                 continue
-            elif self.RE_TESTCONNECTION_NO_DEVICE.fullmatch(line):
-                return False
-        return True
+
+            raise BrokenPipeError
 
     def ls_to_stat(self, line: str) -> Tuple[str, os.stat_result]:
         if self.RE_NO_SUCH_FILE.fullmatch(line):
