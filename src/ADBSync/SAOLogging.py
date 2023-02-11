@@ -89,8 +89,9 @@ def log_tree(title, tree, finals = None, log_leaves_types = True, logging_level 
 # like logging.CRITICAl, logging.DEBUG etc
 FATAL = 60
 
-def perror(s: Union[str, Any], e: OSError, logging_level: int = logging.ERROR):
-    msg = f"{s}{': ' if s else ''}{e.strerror}"
+def perror(s: Union[str, Any], e: Exception, logging_level: int = logging.ERROR):
+    strerror = e.strerror if (isinstance(e, OSError) and e.strerror is not None) else e.__class__.__name__
+    msg = f"{s}{': ' if s else ''}{strerror}"
     if logging_level == FATAL:
         logging_fatal(msg)
     else:
