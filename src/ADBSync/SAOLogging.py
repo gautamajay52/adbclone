@@ -60,7 +60,8 @@ def setup_root_logger(
     root_logger.addHandler(console_handler)
 
 def logging_fatal(message, log_stack_info: bool = True, exit_code: int = 1):
-    logging.critical(message, stack_info = log_stack_info)
+    logging.critical(message)
+    logging.debug("Stack Trace", stack_info = log_stack_info)
     logging.critical("Exiting")
     raise SystemExit(exit_code)
 
