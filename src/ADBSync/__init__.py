@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from typing import List, Tuple, Union
 import logging
@@ -10,7 +10,7 @@ import os
 import stat
 import fnmatch
 
-from .argparsing import get_args
+from .argparsing import get_cli_args
 from .SAOLogging import logging_fatal, log_tree, setup_root_logger, perror, FATAL
 
 from .FileSystems.Base import FileSystem
@@ -319,7 +319,7 @@ class FileSyncer():
         return path_source, path_destination
 
 def main():
-    args = get_args(__doc__, __version__)
+    args = get_cli_args(__doc__, __version__)
 
     setup_root_logger(
         no_color = args.logging_no_color,
@@ -343,17 +343,16 @@ def main():
     if not fs_android.test_connection():
         logging_fatal("No device detected")
 
-    args.LOCAL = os.path.expanduser(args.LOCAL)
-    if args.pull:
-        path_source = args.ANDROID
-        fs_source = fs_android
-        path_destination = args.LOCAL
-        fs_destination = fs_local
-    else:
-        path_source = args.LOCAL
+    if args.direction == "push":
+        path_source = args.direction_push_local
         fs_source = fs_local
-        path_destination = args.ANDROID
+        path_destination = args.direction_push_android
         fs_destination = fs_android
+    else:
+        path_source = args.direction_pull_android
+        fs_source = fs_android
+        path_destination = args.direction_pull_local
+        fs_destination = fs_local
 
     path_source, path_destination = FileSyncer.paths_to_fixed_destination_paths(path_source, fs_source, path_destination, fs_destination)
 

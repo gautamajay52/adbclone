@@ -1,6 +1,22 @@
 # Better ADB Sync
 
+## QRD
+
 The main file to run is `./src/adbsync.py`
+
+To push from your computer to your phone use
+```
+$ adbsync.py push LOCAL ANDROID
+```
+
+To pull from your phone to your computer use
+```
+$ adbsync.py pull ANDROID LOCAL
+```
+
+Full help is available with `$ adbsync.py --help`
+
+## Intro
 
 This is a (pretty much from scratch) rewrite of Google's [adbsync](https://github.com/google/adb-sync) repo.
 
