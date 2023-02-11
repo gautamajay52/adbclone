@@ -422,7 +422,7 @@ def main():
         log_tree(f"{path_source} --> {path_destination}", tree_copy, log_leaves_types = False)
     logging.info("")
 
-    logging.info("Source exluded tree:")
+    logging.info("Source excluded tree:")
     if tree_excluded_source is not None:
         log_tree(path_source, tree_excluded_source, log_leaves_types = False)
     logging.info("")
