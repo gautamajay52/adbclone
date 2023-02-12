@@ -494,7 +494,7 @@ def main():
         logging.info("Copying copy tree")
         fs_destination.push_tree_here(
             path_source,
-            ".",
+            fs_destination.split(path_source)[1] if isinstance(tree_copy, tuple) else ".",
             tree_copy,
             path_destination,
             fs_source,
