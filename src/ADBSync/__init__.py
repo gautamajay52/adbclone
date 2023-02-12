@@ -281,6 +281,15 @@ class FileSyncer():
             return return_dict or None
 
     @classmethod
+    def sort_tree(cls, tree):
+        if not isinstance(tree, dict):
+            return tree
+        return {
+            k: cls.sort_tree(v)
+            for k, v in sorted(tree.items())
+        }
+
+    @classmethod
     def paths_to_fixed_destination_paths(cls,
         path_source: str,
         fs_source: FileSystem,
@@ -406,11 +415,17 @@ def main():
         folder_file_overwrite_error = not args.dry_run and not args.force
     )
 
-    tree_delete = FileSyncer.prune_tree(tree_delete)
-    tree_copy = FileSyncer.prune_tree(tree_copy)
-    tree_excluded_source = FileSyncer.prune_tree(tree_excluded_source)
+    tree_delete                  = FileSyncer.prune_tree(tree_delete)
+    tree_copy                    = FileSyncer.prune_tree(tree_copy)
+    tree_excluded_source         = FileSyncer.prune_tree(tree_excluded_source)
     tree_unaccounted_destination = FileSyncer.prune_tree(tree_unaccounted_destination)
-    tree_excluded_destination = FileSyncer.prune_tree(tree_excluded_destination)
+    tree_excluded_destination    = FileSyncer.prune_tree(tree_excluded_destination)
+
+    tree_delete                  = FileSyncer.sort_tree(tree_delete)
+    tree_copy                    = FileSyncer.sort_tree(tree_copy)
+    tree_excluded_source         = FileSyncer.sort_tree(tree_excluded_source)
+    tree_unaccounted_destination = FileSyncer.sort_tree(tree_unaccounted_destination)
+    tree_excluded_destination    = FileSyncer.sort_tree(tree_excluded_destination)
 
     logging.info("Delete tree:")
     if tree_delete is not None:
