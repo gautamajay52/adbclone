@@ -17,6 +17,7 @@ class Args():
     delete_excluded: bool
     force: bool
     show_progress: bool
+    adb_encoding: str
 
     adb_bin: str
     adb_flags: List[str]
@@ -101,6 +102,11 @@ def get_cli_args(docstring: str, version: str) -> Args:
         action = "store_true",
         dest = "show_progress"
     )
+    parser.add_argument("--adb-encoding",
+        help = "Which encoding to use when talking to adb. Defaults to UTF-8. Relevant to GitHub issue #22",
+        dest = "adb_encoding",
+        default = "UTF-8"
+    )
 
     parser_adb = parser.add_argument_group(title = "ADB arguments",
         description = "By default ADB works for me without touching any of these, but if you have any specific demands then go ahead. See 'adb --help' for a full list of adb flags and options"
@@ -184,6 +190,7 @@ def get_cli_args(docstring: str, version: str) -> Args:
         args.delete_excluded,
         args.force,
         args.show_progress,
+        args.adb_encoding,
 
         args.adb_bin,
         args.adb_flags,

@@ -69,8 +69,9 @@ class AndroidFileSystem(FileSystem):
 
     ADBSYNC_END_OF_COMMAND = "ADBSYNC END OF COMMAND"
 
-    def __init__(self, adb_arguments: List[str]) -> None:
+    def __init__(self, adb_arguments: List[str], adb_encoding: str) -> None:
         super().__init__(adb_arguments)
+        self.adb_encoding = adb_encoding
         self.proc_adb_shell = subprocess.Popen(
             self.adb_arguments + ["shell"],
             stdin = subprocess.PIPE,
@@ -83,14 +84,14 @@ class AndroidFileSystem(FileSystem):
         self.proc_adb_shell.wait()
 
     def adb_shell(self, commands: List[str]) -> Iterator[str]:
-        self.proc_adb_shell.stdin.write(" ".join(commands).encode())
-        self.proc_adb_shell.stdin.write("\n".encode())
-        self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode())
+        self.proc_adb_shell.stdin.write(" ".join(commands).encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write("\n".encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode(self.adb_encoding))
         self.proc_adb_shell.stdin.flush()
 
         lines_to_yield: List[str] = []
         while adb_line := self.proc_adb_shell.stdout.readline():
-            adb_line = adb_line.decode().rstrip("\r\n")
+            adb_line = adb_line.decode(self.adb_encoding).rstrip("\r\n")
             if adb_line == self.ADBSYNC_END_OF_COMMAND:
                 break
             else:

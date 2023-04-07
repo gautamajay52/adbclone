@@ -2,7 +2,7 @@
 
 """Better version of adb-sync for Python3"""
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 
 from typing import List, Tuple, Union
 import logging
@@ -346,7 +346,7 @@ def main():
         adb_arguments.append(f"-{option}")
         adb_arguments.append(value)
 
-    fs_android = AndroidFileSystem(adb_arguments)
+    fs_android = AndroidFileSystem(adb_arguments, args.adb_encoding)
     fs_local = LocalFileSystem(adb_arguments)
 
     try:
