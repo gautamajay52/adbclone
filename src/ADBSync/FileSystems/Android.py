@@ -192,8 +192,8 @@ class AndroidFileSystem(FileSystem):
                 yield self.ls_to_stat(line)
 
     def utime(self, path: str, times: Tuple[int, int]) -> None:
-        atime = datetime.datetime.utcfromtimestamp(times[0]).strftime("%Y%m%d%H%M")
-        mtime = datetime.datetime.utcfromtimestamp(times[1]).strftime("%Y%m%d%H%M")
+        atime = datetime.datetime.fromtimestamp(times[0]).strftime("%Y%m%d%H%M")
+        mtime = datetime.datetime.fromtimestamp(times[1]).strftime("%Y%m%d%H%M")
         for line in self.adb_shell(["touch", "-at", atime, "-mt", mtime, self.escape_path(path)]):
             self.line_not_captured(line)
 
