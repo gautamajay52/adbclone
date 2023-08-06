@@ -1,20 +1,28 @@
 # Better ADB Sync
 
-## QRD
+An [rsync](https://wiki.archlinux.org/title/rsync)-like program to sync files between a computer and an Android device
 
-The main file to run is `./src/adbsync.py`
+## Installation
+
+Available on [PyPI](https://pypi.org/project/BetterADBSync/)
+
+```
+$ pip install BetterADBSync
+```
+
+## QRD
 
 To push from your computer to your phone use
 ```
-$ adbsync.py push LOCAL ANDROID
+$ adbsync push LOCAL ANDROID
 ```
 
 To pull from your phone to your computer use
 ```
-$ adbsync.py pull ANDROID LOCAL
+$ adbsync pull ANDROID LOCAL
 ```
 
-Full help is available with `$ adbsync.py --help`
+Full help is available with `$ adbsync --help`
 
 ## Intro
 

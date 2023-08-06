@@ -1,0 +1,16 @@
+[project]
+name = "BetterADBSync"
+version = "1.3.2"
+description = "Better version of adb-sync for Python3"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/jb2170/better-adb-sync/"
+
+[project.scripts]
+adbsync = "BetterADBSync:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

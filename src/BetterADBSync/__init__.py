@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-"""Better version of adb-sync for Python3"""
+"""Sync files between a computer and an Android device"""
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 
 from typing import List, Tuple, Union
 import logging
