@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import stat
+import shlex
 import datetime
 import subprocess
 
@@ -58,15 +59,6 @@ class AndroidFileSystem(FileSystem):
     RE_REALPATH_NO_SUCH_FILE = re.compile("^realpath: .*: No such file or directory$")
     RE_REALPATH_NOT_A_DIRECTORY = re.compile("^realpath: .*: Not a directory$")
 
-    ESCAPE_PATH_REPLACEMENTS = [
-        [" ", "\\ "],
-        ["'", "\\'"],
-        ["(", "\\("],
-        [")", "\\)"],
-        ["!", "\\!"],
-        ["&", "\\&"]
-    ]
-
     ADBSYNC_END_OF_COMMAND = "ADBSYNC END OF COMMAND"
 
     def __init__(self, adb_arguments: List[str], adb_encoding: str) -> None:
@@ -84,9 +76,10 @@ class AndroidFileSystem(FileSystem):
         self.proc_adb_shell.wait()
 
     def adb_shell(self, commands: List[str]) -> Iterator[str]:
-        self.proc_adb_shell.stdin.write(" ".join(commands).encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.write("\n".encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(shlex.join(commands).encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(shlex.join(["echo", self.ADBSYNC_END_OF_COMMAND]).encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
         self.proc_adb_shell.stdin.flush()
 
         lines_to_yield: List[str] = []
@@ -102,11 +95,6 @@ class AndroidFileSystem(FileSystem):
     def line_not_captured(self, line: str) -> NoReturn:
         logging.critical("ADB line not captured")
         logging_fatal(line)
-
-    def escape_path(self, path: str) -> str:
-        for replacement in self.ESCAPE_PATH_REPLACEMENTS:
-            path = path.replace(*replacement)
-        return path
 
     def test_connection(self):
         for line in self.adb_shell([":"]):
@@ -159,19 +147,19 @@ class AndroidFileSystem(FileSystem):
         return "/"
 
     def unlink(self, path: str) -> None:
-        for line in self.adb_shell(["rm", self.escape_path(path)]):
+        for line in self.adb_shell(["rm", path]):
             self.line_not_captured(line)
 
     def rmdir(self, path: str) -> None:
-        for line in self.adb_shell(["rm", "-r", self.escape_path(path)]):
+        for line in self.adb_shell(["rm", "-r", path]):
             self.line_not_captured(line)
 
     def makedirs(self, path: str) -> None:
-        for line in self.adb_shell(["mkdir", "-p", self.escape_path(path)]):
+        for line in self.adb_shell(["mkdir", "-p", path]):
             self.line_not_captured(line)
 
     def realpath(self, path: str) -> str:
-        for line in self.adb_shell(["realpath", self.escape_path(path)]):
+        for line in self.adb_shell(["realpath", path]):
             if self.RE_REALPATH_NO_SUCH_FILE.fullmatch(line):
                 raise FileNotFoundError
             elif self.RE_REALPATH_NOT_A_DIRECTORY.fullmatch(line):
@@ -181,11 +169,11 @@ class AndroidFileSystem(FileSystem):
             # permission error possible?
 
     def lstat(self, path: str) -> os.stat_result:
-        for line in self.adb_shell(["ls", "-lad", self.escape_path(path)]):
+        for line in self.adb_shell(["ls", "-lad", path]):
             return self.ls_to_stat(line)[1]
 
     def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
-        for line in self.adb_shell(["ls", "-la", self.escape_path(path)]):
+        for line in self.adb_shell(["ls", "-la", path]):
             if self.RE_TOTAL.fullmatch(line):
                 continue
             else:
@@ -194,7 +182,7 @@ class AndroidFileSystem(FileSystem):
     def utime(self, path: str, times: Tuple[int, int]) -> None:
         atime = datetime.datetime.fromtimestamp(times[0]).strftime("%Y%m%d%H%M")
         mtime = datetime.datetime.fromtimestamp(times[1]).strftime("%Y%m%d%H%M")
-        for line in self.adb_shell(["touch", "-at", atime, "-mt", mtime, self.escape_path(path)]):
+        for line in self.adb_shell(["touch", "-at", atime, "-mt", mtime, path]):
             self.line_not_captured(line)
 
     def join(self, base: str, leaf: str) -> str:
