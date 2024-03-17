@@ -1,19 +1,22 @@
 [project]
-name = "BetterADBSync"
+name = "adbclone"
 dynamic = ["version"]
 description = "Better version of adb-sync for Python3"
 readme = "README.md"
 license = {file = "LICENSE"}
+dependencies = [
+  "rich",
+]
 
 [project.urls]
-Homepage = "https://github.com/jb2170/better-adb-sync/"
+Homepage = "https://github.com/gautamajay52/adbclone"
 
 [project.scripts]
-adbsync = "BetterADBSync:main"
+adbclone = "BetterADBSync:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "BetterADBSync.__version__"}
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"

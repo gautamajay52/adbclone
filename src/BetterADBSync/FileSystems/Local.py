@@ -1,10 +1,11 @@
-from typing import Iterable, Tuple
 import os
 import subprocess
+import time
+from typing import Iterable, Tuple
 
-from ..SAOLogging import logging_fatal
-
+from ..SAOLogging import file_name_progress, logging_fatal, overall_progress
 from .Base import FileSystem
+
 
 class LocalFileSystem(FileSystem):
     @property
@@ -12,13 +13,15 @@ class LocalFileSystem(FileSystem):
         return os.path.sep
 
     def unlink(self, path: str) -> None:
-        os.unlink(path)
+        if os.path.exists(path):
+            os.remove(path)
 
     def rmdir(self, path: str) -> None:
-        os.rmdir(path)
+        if os.path.exists(path):
+            os.rmdir(path)
 
     def makedirs(self, path: str) -> None:
-        os.makedirs(path, exist_ok = True)
+        os.makedirs(path, exist_ok=True)
 
     def realpath(self, path: str) -> str:
         return os.path.realpath(path)
@@ -42,13 +45,45 @@ class LocalFileSystem(FileSystem):
     def normpath(self, path: str) -> str:
         return os.path.normpath(path)
 
-    def push_file_here(self, source: str, destination: str, show_progress: bool = False) -> None:
+    def push_file_here(
+        self, source_path, destination_path, file_task_id, cur_file_size
+    ):
+        adb_process = subprocess.Popen(
+            ["adb", "pull", source_path, destination_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.process = adb_process
+        old_file_size = 0
+        file_exists = False
+        if cur_file_size > 30 * 1024 * 1024:
+            time.sleep(1)
+            while adb_process.poll() is None:
+                if not file_exists:
+                    file_exists = os.path.exists(destination_path)
+                    continue
+
+                current_file_size = self.lstat(
+                    destination_path
+                ).st_size  # expensive much?
+                file_name_progress.update(file_task_id, completed=current_file_size)
+                overall_progress.update(
+                    overall_progress.task_ids.pop(0),
+                    advance=current_file_size - old_file_size,
+                )
+                old_file_size = current_file_size
+                time.sleep(0.5)  # increase?
+        else:
+            adb_process.wait()
+
+    def _push_file_here(
+        self, source: str, destination: str, show_progress: bool = False
+    ) -> None:
         if show_progress:
             kwargs_call = {}
         else:
-            kwargs_call = {
-                "stdout": subprocess.DEVNULL,
-                "stderr": subprocess.DEVNULL
-            }
-        if subprocess.call(self.adb_arguments + ["pull", source, destination], **kwargs_call):
+            kwargs_call = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if subprocess.call(
+            self.adb_arguments + ["pull", source, destination], **kwargs_call
+        ):
             logging_fatal("Non-zero exit code from adb pull")

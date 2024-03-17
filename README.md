@@ -1,3 +1,55 @@
+# ⚡adbclone [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fgautamajay52%2Fadbclone&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://github.com/gautamajay52/adbclone)
+
+> A [rclone](https://rclone.org/) like program to copy files between a computer and an Android device
+
+## ⚡Installation:
+
+Available on [PyPI](https://pypi.org/project/adbclone/)
+
+```
+pip install adbclone
+```
+
+## ⚡Usage:
+
+To push from your computer to your phone use
+
+```
+adbclone push LOCAL ANDROID
+```
+
+To pull from your phone to your computer use
+
+```
+adbclone pull ANDROID LOCAL
+```
+
+Full help is available with `$ adbclone --help`
+
+## ⚡Flags:
+- `--show-tree` Show tree of source and destination
+- `--del` will delete files and folders on the destination end that are not present on the source end. This does not include exluded files.
+- `--delete-excluded` will delete excluded files and folders on the destination end.
+- `--exclude` can be used many times. Each should be a `fnmatch` pattern relative to the source. These patterns will be ignored unless `--delete-excluded` is specified.
+- `--exclude-from` can be used many times. Each should be a filename of a file containing `fnmatch` patterns relative to the source.
+
+## ⚡ToDos:
+- [x] Add Progress
+- [ ] Multiple Transfers
+- [ ] Add more ToDos
+
+# ⚡Demo:
+![adbclone GIF](https://raw.githubusercontent.com/gautamajay52/filestore/main/adbclone.gif)
+
+## ⚡Credits:
+* [GautamKumar(me)](https://github.com/gautamajay52) for [Something](https://github.com/gautamajay52/adbclone)
+* [adb-sync](https://github.com/jb2170/better-adb-sync) for all the hard-work.
+
+#
+<details>
+
+<summary> <strong> Previous Readme </strong></summary>
+
 # Better ADB Sync
 
 An [rsync](https://wiki.archlinux.org/title/rsync)-like program to sync files between a computer and an Android device
@@ -185,3 +237,4 @@ This is not an official Google product.
 ---END ORIGINAL README.md---
 
 ---
+</details>

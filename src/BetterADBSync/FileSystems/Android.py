@@ -1,19 +1,22 @@
-from typing import Iterable, Iterator, List, NoReturn, Tuple
+import datetime
 import logging
 import os
 import re
-import stat
 import shlex
-import datetime
+import stat
 import subprocess
+import time
+from typing import Iterable, Iterator, List, NoReturn, Tuple
 
-from ..SAOLogging import logging_fatal
-
+from ..SAOLogging import file_name_progress, logging_fatal, overall_progress
 from .Base import FileSystem
+
 
 class AndroidFileSystem(FileSystem):
     RE_TESTCONNECTION_NO_DEVICE = re.compile("^adb\\: no devices/emulators found$")
-    RE_TESTCONNECTION_DAEMON_NOT_RUNNING = re.compile("^\\* daemon not running; starting now at tcp:\\d+$")
+    RE_TESTCONNECTION_DAEMON_NOT_RUNNING = re.compile(
+        "^\\* daemon not running; starting now at tcp:\\d+$"
+    )
     RE_TESTCONNECTION_DAEMON_STARTED = re.compile("^\\* daemon started successfully$")
 
     RE_LS_TO_STAT = re.compile(
@@ -50,7 +53,9 @@ class AndroidFileSystem(FileSystem):
         [ ]
         # Don't capture filename for symlinks (ambiguous).
         (?(S_IFLNK) .* | (?P<filename> .*))
-        $""", re.DOTALL | re.VERBOSE)
+        $""",
+        re.DOTALL | re.VERBOSE,
+    )
 
     RE_NO_SUCH_FILE = re.compile("^.*: No such file or directory$")
     RE_LS_NOT_A_DIRECTORY = re.compile("ls: .*: Not a directory$")
@@ -66,10 +71,11 @@ class AndroidFileSystem(FileSystem):
         self.adb_encoding = adb_encoding
         self.proc_adb_shell = subprocess.Popen(
             self.adb_arguments + ["shell"],
-            stdin = subprocess.PIPE,
-            stdout = subprocess.PIPE,
-            stderr = subprocess.STDOUT
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
+        self.process = ""
 
     def __del__(self):
         self.proc_adb_shell.stdin.close()
@@ -78,7 +84,9 @@ class AndroidFileSystem(FileSystem):
     def adb_shell(self, commands: List[str]) -> Iterator[str]:
         self.proc_adb_shell.stdin.write(shlex.join(commands).encode(self.adb_encoding))
         self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.write(shlex.join(["echo", self.ADBSYNC_END_OF_COMMAND]).encode(self.adb_encoding))
+        self.proc_adb_shell.stdin.write(
+            shlex.join(["echo", self.ADBSYNC_END_OF_COMMAND]).encode(self.adb_encoding)
+        )
         self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
         self.proc_adb_shell.stdin.flush()
 
@@ -100,7 +108,9 @@ class AndroidFileSystem(FileSystem):
         for line in self.adb_shell([":"]):
             print(line)
 
-            if self.RE_TESTCONNECTION_DAEMON_NOT_RUNNING.fullmatch(line) or self.RE_TESTCONNECTION_DAEMON_STARTED.fullmatch(line):
+            if self.RE_TESTCONNECTION_DAEMON_NOT_RUNNING.fullmatch(
+                line
+            ) or self.RE_TESTCONNECTION_DAEMON_STARTED.fullmatch(line):
                 continue
 
             raise BrokenPipeError
@@ -112,23 +122,33 @@ class AndroidFileSystem(FileSystem):
             raise NotADirectoryError
         elif match := self.RE_LS_TO_STAT.fullmatch(line):
             match_groupdict = match.groupdict()
-            st_mode = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH # 755
-            if match_groupdict['S_IFREG']:
+            st_mode = (
+                stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+            )  # 755
+            if match_groupdict["S_IFREG"]:
                 st_mode |= stat.S_IFREG
-            if match_groupdict['S_IFBLK']:
+            if match_groupdict["S_IFBLK"]:
                 st_mode |= stat.S_IFBLK
-            if match_groupdict['S_IFCHR']:
+            if match_groupdict["S_IFCHR"]:
                 st_mode |= stat.S_IFCHR
-            if match_groupdict['S_IFDIR']:
+            if match_groupdict["S_IFDIR"]:
                 st_mode |= stat.S_IFDIR
-            if match_groupdict['S_IFIFO']:
+            if match_groupdict["S_IFIFO"]:
                 st_mode |= stat.S_IFIFO
-            if match_groupdict['S_IFLNK']:
+            if match_groupdict["S_IFLNK"]:
                 st_mode |= stat.S_IFLNK
-            if match_groupdict['S_IFSOCK']:
+            if match_groupdict["S_IFSOCK"]:
                 st_mode |= stat.S_IFSOCK
-            st_size = None if match_groupdict["st_size"] is None else int(match_groupdict["st_size"])
-            st_mtime = int(datetime.datetime.strptime(match_groupdict["st_mtime"], "%Y-%m-%d %H:%M").timestamp())
+            st_size = (
+                None
+                if match_groupdict["st_size"] is None
+                else int(match_groupdict["st_size"])
+            )
+            st_mtime = int(
+                datetime.datetime.strptime(
+                    match_groupdict["st_mtime"], "%Y-%m-%d %H:%M"
+                ).timestamp()
+            )
 
             # Fill the rest with dummy values.
             st_ino = 1
@@ -138,7 +158,20 @@ class AndroidFileSystem(FileSystem):
             st_gid = -2  # Nobody.
             st_atime = st_ctime = st_mtime
 
-            return match_groupdict["filename"], os.stat_result((st_mode, st_ino, st_rdev, st_nlink, st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime))
+            return match_groupdict["filename"], os.stat_result(
+                (
+                    st_mode,
+                    st_ino,
+                    st_rdev,
+                    st_nlink,
+                    st_uid,
+                    st_gid,
+                    st_size,
+                    st_atime,
+                    st_mtime,
+                    st_ctime,
+                )
+            )
         else:
             self.line_not_captured(line)
 
@@ -146,11 +179,31 @@ class AndroidFileSystem(FileSystem):
     def sep(self) -> str:
         return "/"
 
-    def unlink(self, path: str) -> None:
+    def _unlink(self, path: str) -> None:
         for line in self.adb_shell(["rm", path]):
             self.line_not_captured(line)
 
-    def rmdir(self, path: str) -> None:
+    def run(self, command):
+        try:
+            output = subprocess.check_output(
+                shlex.join(command), shell=True, stderr=subprocess.STDOUT
+            )
+            return output.decode().strip()
+        except subprocess.CalledProcessError:
+            return None
+
+    def exists(self, path: str):
+        return bool(self.run(["adb", "shell", "ls", path]))
+
+    def unlink(self, path: str):
+        if self.exists(path):
+            self.run(["adb" "shell", "rm", path])
+
+    def rmdir(self, path: str):
+        if self.exists(path):
+            self.run(["adb", "shell", "rm", "-r", path])
+
+    def _rmdir(self, path: str) -> None:
         for line in self.adb_shell(["rm", "-r", path]):
             self.line_not_captured(line)
 
@@ -186,22 +239,54 @@ class AndroidFileSystem(FileSystem):
             self.line_not_captured(line)
 
     def join(self, base: str, leaf: str) -> str:
-        return os.path.join(base, leaf).replace("\\", "/") # for Windows
+        return os.path.join(base, leaf).replace("\\", "/")  # for Windows
 
     def split(self, path: str) -> Tuple[str, str]:
         head, tail = os.path.split(path)
-        return head.replace("\\", "/"), tail # for Windows
+        return head.replace("\\", "/"), tail  # for Windows
 
     def normpath(self, path: str) -> str:
         return os.path.normpath(path).replace("\\", "/")
 
-    def push_file_here(self, source: str, destination: str, show_progress: bool = False) -> None:
+    def push_file_here(
+        self, source_path, destination_path, file_task_id, cur_file_size
+    ):
+        adb_process = subprocess.Popen(
+            ["adb", "push", source_path, destination_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.process = adb_process
+        old_file_size = 0
+        file_exists = False
+
+        if cur_file_size > 30 * 1024 * 1024:
+            time.sleep(1)
+            while adb_process.poll() is None:
+                if not file_exists:
+                    file_exists = self.exists(destination_path)
+                    continue
+                current_file_size = self.lstat(
+                    destination_path
+                ).st_size  # expensive much?
+                file_name_progress.update(file_task_id, completed=current_file_size)
+                overall_progress.update(
+                    overall_progress.task_ids.pop(0),
+                    advance=current_file_size - old_file_size,
+                )
+                old_file_size = current_file_size
+                time.sleep(0.5)  # increase?
+        else:
+            adb_process.wait()
+
+    def _push_file_here(
+        self, source: str, destination: str, show_progress: bool = False
+    ) -> None:
         if show_progress:
             kwargs_call = {}
         else:
-            kwargs_call = {
-                "stdout": subprocess.DEVNULL,
-                "stderr": subprocess.DEVNULL
-            }
-        if subprocess.call(self.adb_arguments + ["push", source, destination], **kwargs_call):
+            kwargs_call = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if subprocess.call(
+            self.adb_arguments + ["push", source, destination], **kwargs_call
+        ):
             logging_fatal("Non-zero exit code from adb push")
