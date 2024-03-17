@@ -15,19 +15,20 @@ pip install adbclone
 To push from your computer to your phone use
 
 ```
-adbclone push LOCAL ANDROID
+adbclone --show-progress push LOCAL ANDROID
 ```
 
 To pull from your phone to your computer use
 
 ```
-adbclone pull ANDROID LOCAL
+adbclone --show-progress pull ANDROID LOCAL
 ```
 
 Full help is available with `$ adbclone --help`
 
 ## ⚡Flags:
 - `--show-tree` Show tree of source and destination
+- `--show-progress` Show progress of transferring files
 - `--del` will delete files and folders on the destination end that are not present on the source end. This does not include exluded files.
 - `--delete-excluded` will delete excluded files and folders on the destination end.
 - `--exclude` can be used many times. Each should be a `fnmatch` pattern relative to the source. These patterns will be ignored unless `--delete-excluded` is specified.
