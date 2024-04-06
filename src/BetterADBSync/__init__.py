@@ -2,7 +2,7 @@
 
 """Sync files between a computer and an Android device"""
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 import fnmatch
 import logging
