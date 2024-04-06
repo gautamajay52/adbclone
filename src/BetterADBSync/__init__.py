@@ -10,6 +10,7 @@ import os
 import stat
 import time
 from collections import deque
+from datetime import datetime
 from typing import List, Tuple, Union
 
 from rich import print
@@ -23,6 +24,7 @@ from .FileSystems.Local import LocalFileSystem
 from .SAOLogging import (
     FATAL,
     destination_counting_progress,
+    live,
     log_tree,
     logging_fatal,
     overall_progress,
@@ -30,7 +32,6 @@ from .SAOLogging import (
     setup_root_logger,
     source_counting_progress,
     truncate_path,
-    live,
 )
 
 
@@ -431,14 +432,14 @@ def main():
     live.start()
 
     if args.direction == "push":
-        path_source = args.direction_push_local
+        path_source = args.direction_push_local.rstrip("/")
         fs_source = fs_local
-        path_destination = args.direction_push_android
+        path_destination = args.direction_push_android.rstrip("/")
         fs_destination = fs_android
     else:
-        path_source = args.direction_pull_android
+        path_source = args.direction_pull_android.rstrip("/")
         fs_source = fs_android
-        path_destination = args.direction_pull_local
+        path_destination = args.direction_pull_local.rstrip("/")
         fs_destination = fs_local
 
     path_source, path_destination = FileSyncer.paths_to_fixed_destination_paths(
@@ -527,6 +528,32 @@ def main():
         fs_destination.join,
         folder_file_overwrite_error=not args.dry_run and not args.force,
     )
+
+    if args.copy_to_new_folder:
+        if path_destination != "." and fs_destination.exists(path_destination):
+            path_destination = (
+                f'{path_destination}_{datetime.now().strftime("%Y_%m_%d")}'
+            )
+            if fs_destination.exists(path_destination):  # recheck the new dest path
+                files_tree_destination = fs_destination.get_files_tree(
+                    path_destination, follow_links=args.copy_links
+                )
+                (
+                    tree_delete,
+                    tree_copy,
+                    tree_excluded_source,
+                    tree_unaccounted_destination,
+                    tree_excluded_destination,
+                ) = FileSyncer.diff_trees(
+                    tree_copy,
+                    files_tree_destination,
+                    path_source,
+                    path_destination,
+                    excludePatterns,
+                    fs_source.join,
+                    fs_destination.join,
+                    folder_file_overwrite_error=not args.dry_run and not args.force,
+                )
 
     tree_delete = FileSyncer.prune_tree(tree_delete)
     tree_copy = FileSyncer.prune_tree(tree_copy)
@@ -667,6 +694,7 @@ def main():
         overall_progress.console.print("")
 
     if tree_copy is not None:
+        fs_destination.makedirs(path_destination)
         copy_files, copy_size = FileSyncer.about_tree(tree_copy)
         overall_progress.console.print("Copying files:")
         prog_title = f"[bold red]{args.direction}ing [bold violet]{truncate_path(path_source,4)} [/bold violet]to [bold violet]{truncate_path(path_destination,4)}"

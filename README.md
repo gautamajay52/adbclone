@@ -2,6 +2,11 @@
 
 > A [rclone](https://rclone.org/) like program to copy files between a computer and an Android device
 
+![adbclone GIF](https://raw.githubusercontent.com/gautamajay52/filestore/main/adbclone.gif)
+
+## ⚡Benefits:
+`adbclone` offers significantly faster and more reliable file transfers for larger files compared to traditional `MTP (Media Transfer Protocol)`
+
 ## ⚡Installation:
 
 Available on [PyPI](https://pypi.org/project/adbclone/)
@@ -27,8 +32,9 @@ adbclone --show-progress pull ANDROID LOCAL
 Full help is available with `$ adbclone --help`
 
 ## ⚡Flags:
-- `--show-tree` Show tree of source and destination
 - `--show-progress` Show progress of transferring files
+- `--copy-to-new-folder`  updated files will be copied to a new folder to work on later and can be merged
+- `--show-tree` Show tree of source and destination
 - `--del` will delete files and folders on the destination end that are not present on the source end. This does not include exluded files.
 - `--delete-excluded` will delete excluded files and folders on the destination end.
 - `--exclude` can be used many times. Each should be a `fnmatch` pattern relative to the source. These patterns will be ignored unless `--delete-excluded` is specified.
@@ -39,8 +45,8 @@ Full help is available with `$ adbclone --help`
 - [ ] Multiple Transfers
 - [ ] Add more ToDos
 
-# ⚡Demo:
-![adbclone GIF](https://raw.githubusercontent.com/gautamajay52/filestore/main/adbclone.gif)
+<!-- ## ⚡Demo:
+![adbclone GIF](https://raw.githubusercontent.com/gautamajay52/filestore/main/adbclone.gif) -->
 
 ## ⚡Credits:
 * [GautamKumar(me)](https://github.com/gautamajay52) for [Something](https://github.com/gautamajay52/adbclone)

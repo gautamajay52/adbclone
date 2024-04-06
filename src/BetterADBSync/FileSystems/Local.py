@@ -45,11 +45,15 @@ class LocalFileSystem(FileSystem):
     def normpath(self, path: str) -> str:
         return os.path.normpath(path)
 
+    def exists(self, path: str) -> bool:
+        return os.path.exists(path)
+
     def push_file_here(
         self, source_path, destination_path, file_task_id, cur_file_size
     ):
+        os.makedirs(os.path.dirname(destination_path), exist_ok=True)
         adb_process = subprocess.Popen(
-            ["adb", "pull", source_path, destination_path],
+            self.adb_arguments + ["pull", source_path, destination_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -60,7 +64,7 @@ class LocalFileSystem(FileSystem):
             time.sleep(1)
             while adb_process.poll() is None:
                 if not file_exists:
-                    file_exists = os.path.exists(destination_path)
+                    file_exists = self.exists(destination_path)
                     continue
 
                 current_file_size = self.lstat(

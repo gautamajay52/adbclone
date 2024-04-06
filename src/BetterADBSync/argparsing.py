@@ -19,6 +19,7 @@ class Args:
     force: bool
     show_progress: bool
     show_tree: bool
+    copy_to_new_folder: bool
     adb_encoding: str
 
     adb_bin: str
@@ -125,6 +126,14 @@ def get_cli_args(docstring: str, version: str) -> Args:
         action="store_true",
         dest="show_tree",
     )
+
+    parser.add_argument(
+        "--copy-to-new-folder",
+        help="updated files will be copied to a new folder to work on later and can be merged",
+        action="store_true",
+        dest="copy_to_new_folder",
+    )
+
     parser.add_argument(
         "--adb-encoding",
         help="Which encoding to use when talking to adb. Defaults to UTF-8. Relevant to GitHub issue #22",
@@ -214,6 +223,7 @@ def get_cli_args(docstring: str, version: str) -> Args:
         args.force,
         args.show_progress,
         args.show_tree,
+        args.copy_to_new_folder,
         args.adb_encoding,
         args.adb_bin,
         args.adb_flags,

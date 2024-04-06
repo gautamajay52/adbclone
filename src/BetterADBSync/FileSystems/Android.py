@@ -252,7 +252,7 @@ class AndroidFileSystem(FileSystem):
         self, source_path, destination_path, file_task_id, cur_file_size
     ):
         adb_process = subprocess.Popen(
-            ["adb", "push", source_path, destination_path],
+            self.adb_arguments + ["push", source_path, destination_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
