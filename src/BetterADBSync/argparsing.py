@@ -20,6 +20,7 @@ class Args:
     show_progress: bool
     show_tree: bool
     copy_to_new_folder: bool
+    transfers: int
     adb_encoding: str
 
     adb_bin: str
@@ -133,6 +134,13 @@ def get_cli_args(docstring: str, version: str) -> Args:
         action="store_true",
         dest="copy_to_new_folder",
     )
+    parser.add_argument(
+        "--transfers",
+        help="Number of files to transfer in parallel",
+        type=int,
+        default=2,
+        dest="transfers",
+    )
 
     parser.add_argument(
         "--adb-encoding",
@@ -194,6 +202,8 @@ def get_cli_args(docstring: str, version: str) -> Args:
     )
 
     args = parser.parse_args()
+    if args.transfers < 1:
+        parser.error("--transfers must be >= 1")
 
     if args.direction == "push":
         args_direction_ = (
@@ -224,6 +234,7 @@ def get_cli_args(docstring: str, version: str) -> Args:
         args.show_progress,
         args.show_tree,
         args.copy_to_new_folder,
+        args.transfers,
         args.adb_encoding,
         args.adb_bin,
         args.adb_flags,

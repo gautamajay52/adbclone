@@ -11,11 +11,9 @@ from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
-    BarColumn,
     DownloadColumn,
     Progress,
     SpinnerColumn,
-    TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
@@ -23,28 +21,61 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
+
+from .types import TreeDict
+
+
+class WrapProgress(Progress):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _remove_task(self, task_id: int):
+        if task_id in self.task_ids:
+            self.remove_task(task_id)
+
+    def _stop_task(self, task_id: int):
+        if task_id in self.task_ids:
+            self.stop_task(task_id)
+
+    def _update(self, task_id: int, **kwargs):
+        if task_id in self.task_ids:
+            self.update(task_id, **kwargs)
+
 
 overall_progress = Progress(
-    TimeElapsedColumn(),
+    TextColumn("{task.fields[status]}"),
+)
+
+info_print_progress = Progress(
     TextColumn("{task.description}"),
-    SpinnerColumn(),
-    BarColumn(),
-    TaskProgressColumn(),
-    DownloadColumn(),
-    TextColumn("{task.fields[fields]}"),
-    TransferSpeedColumn(),
-    TimeRemainingColumn(compact=True),
+    TimeElapsedColumn(),
+    SpinnerColumn(finished_text="✅"),
 )
 
 
-file_name_progress = Progress(
+copying_file_name_progress = WrapProgress(
+    TextColumn("    * "),
     TimeElapsedColumn(),
-    TextColumn("{task.description}"),
-    BarColumn(bar_width=10),
-    TaskProgressColumn(),
+    TextColumn("{task.description}:"),
+    TextColumn("{task.percentage:>3.0f}%"),
+    TextColumn(" /"),
     DownloadColumn(),
+    TextColumn(", "),
     TransferSpeedColumn(),
+    TextColumn(", "),
+    TimeRemainingColumn(compact=True),
+    SpinnerColumn(finished_text="✅"),  # ":heavy_check_mark:"
+)
+
+copied_file_name_progress = WrapProgress(
+    TextColumn(" * {task.description}:"),
+    TextColumn("{task.percentage:>3.0f}%"),
+    TextColumn(" /"),
+    DownloadColumn(),
+    TextColumn(", "),
+    TransferSpeedColumn(),
+    # TextColumn(", "),
+    # TimeRemainingColumn(compact=True),
     SpinnerColumn(finished_text="✅"),  # ":heavy_check_mark:"
 )
 
@@ -72,7 +103,11 @@ progress_table.add_row(
     ),
 )
 
-group = Group(progress_table, Group(file_name_progress, overall_progress))
+group = Group(
+    info_print_progress,
+    progress_table,
+    Group(copied_file_name_progress, overall_progress, copying_file_name_progress),
+)
 live = Live(group)
 # live.start()
 
@@ -153,14 +188,15 @@ def setup_root_logger(
 
 
 def logging_fatal(message, log_stack_info: bool = True, exit_code: int = 1):
-    overall_progress.console.print("[INFO] " + message)
+    info_print_progress.console.print("[INFO] " + message)
     logging.debug("Stack Trace", stack_info=log_stack_info)
-    overall_progress.console.print("[INFO] Exiting")
+    info_print_progress.console.print("[INFO] Exiting")
     raise SystemExit(exit_code)
 
 
-def log_tree(title, tree, rtree: Tree):
-    if not isinstance(tree, dict):
+def log_tree(title, tree, rtree: TreeDict):
+    info_print_progress.console.print(f"tree: {tree} {type(tree)}")
+    if isinstance(tree, tuple):
         text_filename = Text(os.path.basename(title), "green")
         text_filename.highlight_regex(r"\..*$", "bold red")
         text_filename.stylize(f"link file://{title}")
@@ -259,7 +295,7 @@ def truncate_path(path, n=3):
     """
     Truncate the path string to fit.
     """
-    width = overall_progress.console.width
+    width = info_print_progress.console.width
     max_length = round(width / n)
 
     # overall_progress.columns[3].bar_width = round(width / 5) if round(width / 5) < 40 else 40
@@ -269,3 +305,21 @@ def truncate_path(path, n=3):
         return path[:split] + "..." + path[-split:]
     else:
         return path
+
+
+def _fmt_size_iec(num_bytes: float) -> str:
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    val = float(num_bytes)
+    unit = units[0]
+    for unit in units:
+        if abs(val) < 1024.0 or unit == units[-1]:
+            break
+        val /= 1024.0
+    return f"{val:,.3f} {unit}" if unit != "B" else f"{int(val)} B"
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    mins, secs = divmod(int(seconds), 60)
+    return f"{mins}m{secs}s"

@@ -1,14 +1,19 @@
+import asyncio
+import contextlib
 import datetime
 import logging
 import os
 import re
 import shlex
 import stat
-import subprocess
-import time
-from typing import Iterable, Iterator, List, NoReturn, Tuple
+from typing import Iterable, List, NoReturn, Optional, Tuple
 
-from ..SAOLogging import file_name_progress, logging_fatal, overall_progress
+from ..SAOLogging import (
+    copied_file_name_progress,
+    copying_file_name_progress,
+    logging_fatal,
+    overall_progress,
+)
 from .Base import FileSystem
 
 
@@ -69,43 +74,34 @@ class AndroidFileSystem(FileSystem):
     def __init__(self, adb_arguments: List[str], adb_encoding: str) -> None:
         super().__init__(adb_arguments)
         self.adb_encoding = adb_encoding
-        self.proc_adb_shell = subprocess.Popen(
-            self.adb_arguments + ["shell"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        self.process = ""
+        self.process = None
 
     def __del__(self):
-        self.proc_adb_shell.stdin.close()
-        self.proc_adb_shell.wait()
+        return
 
-    def adb_shell(self, commands: List[str]) -> Iterator[str]:
-        self.proc_adb_shell.stdin.write(shlex.join(commands).encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.write(
-            shlex.join(["echo", self.ADBSYNC_END_OF_COMMAND]).encode(self.adb_encoding)
+    async def adb_shell(self, commands: List[str]) -> List[str]:
+        proc = await asyncio.create_subprocess_exec(
+            *self.adb_arguments,
+            "shell",
+            shlex.join(commands),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
-        self.proc_adb_shell.stdin.write(" </dev/null\n".encode(self.adb_encoding))
-        self.proc_adb_shell.stdin.flush()
-
-        lines_to_yield: List[str] = []
-        while adb_line := self.proc_adb_shell.stdout.readline():
-            adb_line = adb_line.decode(self.adb_encoding).rstrip("\r\n")
-            if adb_line == self.ADBSYNC_END_OF_COMMAND:
-                break
-            else:
-                lines_to_yield.append(adb_line)
-        for line in lines_to_yield:
-            yield line
+        self.process = proc
+        try:
+            stdout, _ = await proc.communicate()
+        except BaseException:
+            await self.terminate_process(proc)
+            raise
+        output = stdout.decode(self.adb_encoding, errors="replace")
+        return [line.rstrip("\r\n") for line in output.splitlines()]
 
     def line_not_captured(self, line: str) -> NoReturn:
         logging.critical("ADB line not captured")
         logging_fatal(line)
 
-    def test_connection(self):
-        for line in self.adb_shell([":"]):
+    async def test_connection(self) -> None:
+        for line in await self.adb_shell([":"]):
             print(line)
 
             if self.RE_TESTCONNECTION_DAEMON_NOT_RUNNING.fullmatch(
@@ -179,40 +175,46 @@ class AndroidFileSystem(FileSystem):
     def sep(self) -> str:
         return "/"
 
-    def _unlink(self, path: str) -> None:
-        for line in self.adb_shell(["rm", path]):
+    async def _unlink(self, path: str) -> None:
+        for line in await self.adb_shell(["rm", path]):
             self.line_not_captured(line)
 
-    def run(self, command):
-        try:
-            output = subprocess.check_output(
-                shlex.join(command), shell=True, stderr=subprocess.STDOUT
-            )
-            return output.decode().strip()
-        except subprocess.CalledProcessError:
+    async def run(self, command: List[str]) -> Optional[str]:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode != 0:
             return None
+        return stdout.decode(errors="replace").strip()
 
-    def exists(self, path: str):
-        return bool(self.run(["adb", "shell", "ls", path]))
+    async def exists(self, path: str) -> bool:
+        try:
+            await self.lstat(path)
+            return True
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError):
+            return False
 
-    def unlink(self, path: str):
-        if self.exists(path):
-            self.run(["adb" "shell", "rm", path])
+    async def unlink(self, path: str) -> None:
+        if await self.exists(path):
+            await self._unlink(path)
 
-    def rmdir(self, path: str):
-        if self.exists(path):
-            self.run(["adb", "shell", "rm", "-r", path])
+    async def rmdir(self, path: str) -> None:
+        if await self.exists(path):
+            await self._rmdir(path)
 
-    def _rmdir(self, path: str) -> None:
-        for line in self.adb_shell(["rm", "-r", path]):
+    async def _rmdir(self, path: str) -> None:
+        for line in await self.adb_shell(["rm", "-r", path]):
             self.line_not_captured(line)
 
-    def makedirs(self, path: str) -> None:
-        for line in self.adb_shell(["mkdir", "-p", path]):
+    async def makedirs(self, path: str) -> None:
+        for line in await self.adb_shell(["mkdir", "-p", path]):
             self.line_not_captured(line)
 
-    def realpath(self, path: str) -> str:
-        for line in self.adb_shell(["realpath", path]):
+    async def realpath(self, path: str) -> str:
+        for line in await self.adb_shell(["realpath", path]):
             if self.RE_REALPATH_NO_SUCH_FILE.fullmatch(line):
                 raise FileNotFoundError
             elif self.RE_REALPATH_NOT_A_DIRECTORY.fullmatch(line):
@@ -221,21 +223,24 @@ class AndroidFileSystem(FileSystem):
                 return line
             # permission error possible?
 
-    def lstat(self, path: str) -> os.stat_result:
-        for line in self.adb_shell(["ls", "-lad", path]):
+    async def lstat(self, path: str) -> os.stat_result:
+        for line in await self.adb_shell(["ls", "-lad", path]):
             return self.ls_to_stat(line)[1]
+        raise FileNotFoundError(path)
 
-    def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
-        for line in self.adb_shell(["ls", "-la", path]):
+    async def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
+        entries: List[Tuple[str, os.stat_result]] = []
+        for line in await self.adb_shell(["ls", "-la", path]):
             if self.RE_TOTAL.fullmatch(line):
                 continue
             else:
-                yield self.ls_to_stat(line)
+                entries.append(self.ls_to_stat(line))
+        return entries
 
-    def utime(self, path: str, times: Tuple[int, int]) -> None:
+    async def utime(self, path: str, times: Tuple[int, int]) -> None:
         atime = datetime.datetime.fromtimestamp(times[0]).strftime("%Y%m%d%H%M")
         mtime = datetime.datetime.fromtimestamp(times[1]).strftime("%Y%m%d%H%M")
-        for line in self.adb_shell(["touch", "-at", atime, "-mt", mtime, path]):
+        for line in await self.adb_shell(["touch", "-at", atime, "-mt", mtime, path]):
             self.line_not_captured(line)
 
     def join(self, base: str, leaf: str) -> str:
@@ -248,45 +253,66 @@ class AndroidFileSystem(FileSystem):
     def normpath(self, path: str) -> str:
         return os.path.normpath(path).replace("\\", "/")
 
-    def push_file_here(
-        self, source_path, destination_path, file_task_id, cur_file_size
-    ):
-        adb_process = subprocess.Popen(
-            self.adb_arguments + ["push", source_path, destination_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+    async def push_file_here(
+        self,
+        source_path: str,
+        destination_path: str,
+        file_task_id: int,
+        copied_file_task_id: int,
+        cur_file_size: int,
+        overall_progress_task_id: int,
+    ) -> None:
+        adb_process = await asyncio.create_subprocess_exec(
+            *self.adb_arguments,
+            "push",
+            source_path,
+            destination_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
         )
         self.process = adb_process
-        old_file_size = 0
-        file_exists = False
+        try:
+            old_file_size = 0
 
-        if cur_file_size > 30 * 1024 * 1024:
-            time.sleep(1)
-            while adb_process.poll() is None:
-                if not file_exists:
-                    file_exists = self.exists(destination_path)
-                    continue
-                current_file_size = self.lstat(
-                    destination_path
-                ).st_size  # expensive much?
-                file_name_progress.update(file_task_id, completed=current_file_size)
-                overall_progress.update(
-                    overall_progress.task_ids.pop(0),
-                    advance=current_file_size - old_file_size,
-                )
-                old_file_size = current_file_size
-                time.sleep(0.5)  # increase?
-        else:
-            adb_process.wait()
+            if cur_file_size > 30 * 1024 * 1024:
+                while adb_process.returncode is None:
+                    # with contextlib.suppress(asyncio.TimeoutError):
+                    #     await asyncio.wait_for(adb_process.wait(), timeout=0.0)
 
-    def _push_file_here(
-        self, source: str, destination: str, show_progress: bool = False
-    ) -> None:
-        if show_progress:
-            kwargs_call = {}
-        else:
-            kwargs_call = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-        if subprocess.call(
-            self.adb_arguments + ["push", source, destination], **kwargs_call
-        ):
-            logging_fatal("Non-zero exit code from adb push")
+                    try:
+                        current_file_size = (await self.lstat(destination_path)).st_size
+                    except (
+                        FileNotFoundError,
+                        NotADirectoryError,
+                        PermissionError,
+                    ) as e:
+                        copied_file_name_progress.console.print(
+                            f"File not found: {destination_path} {e}"
+                        )
+                        await asyncio.sleep(0.5)
+                        continue
+                    if current_file_size is None or current_file_size < old_file_size:
+                        await asyncio.sleep(0.5)
+                        continue
+                    copying_file_name_progress._update(
+                        file_task_id, completed=current_file_size
+                    )
+                    copied_file_name_progress._update(
+                        copied_file_task_id, completed=current_file_size
+                    )
+                    overall_progress.update(
+                        overall_progress_task_id,
+                        advance=current_file_size - old_file_size,
+                    )
+                    old_file_size = current_file_size
+                    await asyncio.sleep(1)  # increase?
+                await adb_process.wait()
+            else:
+                await adb_process.wait()
+        except BaseException:
+            await self.terminate_process(adb_process)
+            with contextlib.suppress(Exception):
+                await self.unlink(destination_path)
+            raise
+        finally:
+            await self.terminate_process(adb_process)

@@ -1,9 +1,13 @@
+import asyncio
+import contextlib
 import os
-import subprocess
-import time
 from typing import Iterable, Tuple
 
-from ..SAOLogging import file_name_progress, logging_fatal, overall_progress
+from ..SAOLogging import (
+    copied_file_name_progress,
+    copying_file_name_progress,
+    overall_progress,
+)
 from .Base import FileSystem
 
 
@@ -12,28 +16,30 @@ class LocalFileSystem(FileSystem):
     def sep(self) -> str:
         return os.path.sep
 
-    def unlink(self, path: str) -> None:
+    async def unlink(self, path: str) -> None:
         if os.path.exists(path):
             os.remove(path)
 
-    def rmdir(self, path: str) -> None:
+    async def rmdir(self, path: str) -> None:
         if os.path.exists(path):
             os.rmdir(path)
 
-    def makedirs(self, path: str) -> None:
+    async def makedirs(self, path: str) -> None:
         os.makedirs(path, exist_ok=True)
 
-    def realpath(self, path: str) -> str:
+    async def realpath(self, path: str) -> str:
         return os.path.realpath(path)
 
-    def lstat(self, path: str) -> os.stat_result:
+    async def lstat(self, path: str) -> os.stat_result:
         return os.lstat(path)
 
-    def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
+    async def lstat_in_dir(self, path: str) -> Iterable[Tuple[str, os.stat_result]]:
+        entries = []
         for filename in os.listdir(path):
-            yield filename, self.lstat(self.join(path, filename))
+            entries.append((filename, await self.lstat(self.join(path, filename))))
+        return entries
 
-    def utime(self, path: str, times: Tuple[int, int]) -> None:
+    async def utime(self, path: str, times: Tuple[int, int]) -> None:
         os.utime(path, times)
 
     def join(self, base: str, leaf: str) -> str:
@@ -45,49 +51,70 @@ class LocalFileSystem(FileSystem):
     def normpath(self, path: str) -> str:
         return os.path.normpath(path)
 
-    def exists(self, path: str) -> bool:
+    async def exists(self, path: str) -> bool:
         return os.path.exists(path)
 
-    def push_file_here(
-        self, source_path, destination_path, file_task_id, cur_file_size
-    ):
-        os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-        adb_process = subprocess.Popen(
-            self.adb_arguments + ["pull", source_path, destination_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+    async def push_file_here(
+        self,
+        source_path: str,
+        destination_path: str,
+        file_task_id: int,
+        copied_file_task_id: int,
+        cur_file_size: int,
+        overall_progress_task_id: int,
+    ) -> None:
+        destination_dir = os.path.dirname(destination_path)
+        if destination_dir:
+            os.makedirs(destination_dir, exist_ok=True)
+        adb_process = await asyncio.create_subprocess_exec(
+            *self.adb_arguments,
+            "pull",
+            source_path,
+            destination_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
         )
         self.process = adb_process
-        old_file_size = 0
-        file_exists = False
-        if cur_file_size > 30 * 1024 * 1024:
-            time.sleep(1)
-            while adb_process.poll() is None:
-                if not file_exists:
-                    file_exists = self.exists(destination_path)
-                    continue
+        try:
+            old_file_size = 0
+            file_exists = False
+            if cur_file_size > 30 * 1024 * 1024:
+                while adb_process.returncode is None:
+                    # with contextlib.suppress(asyncio.TimeoutError):
+                    #     await asyncio.wait_for(adb_process.wait(), timeout=0.0)
 
-                current_file_size = self.lstat(
-                    destination_path
-                ).st_size  # expensive much?
-                file_name_progress.update(file_task_id, completed=current_file_size)
-                overall_progress.update(
-                    overall_progress.task_ids.pop(0),
-                    advance=current_file_size - old_file_size,
-                )
-                old_file_size = current_file_size
-                time.sleep(0.5)  # increase?
-        else:
-            adb_process.wait()
+                    if not file_exists:
+                        file_exists = await self.exists(destination_path)
+                        await asyncio.sleep(0.2)
+                        continue
 
-    def _push_file_here(
-        self, source: str, destination: str, show_progress: bool = False
-    ) -> None:
-        if show_progress:
-            kwargs_call = {}
-        else:
-            kwargs_call = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-        if subprocess.call(
-            self.adb_arguments + ["pull", source, destination], **kwargs_call
-        ):
-            logging_fatal("Non-zero exit code from adb pull")
+                    try:
+                        current_file_size = (await self.lstat(destination_path)).st_size
+                    except FileNotFoundError:
+                        await asyncio.sleep(0.5)
+                        continue
+                    if current_file_size is None or current_file_size < old_file_size:
+                        await asyncio.sleep(0.5)
+                        continue
+                    copying_file_name_progress._update(
+                        file_task_id, completed=current_file_size
+                    )
+                    copied_file_name_progress._update(
+                        copied_file_task_id, completed=current_file_size
+                    )
+                    overall_progress.update(
+                        overall_progress_task_id,
+                        advance=current_file_size - old_file_size,
+                    )
+                    old_file_size = current_file_size
+                    await asyncio.sleep(1)  # increase?
+                await adb_process.wait()
+            else:
+                await adb_process.wait()
+        except BaseException:
+            await self.terminate_process(adb_process)
+            with contextlib.suppress(Exception):
+                await self.unlink(destination_path)
+            raise
+        finally:
+            await self.terminate_process(adb_process)
